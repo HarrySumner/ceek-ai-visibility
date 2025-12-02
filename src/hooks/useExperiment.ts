@@ -34,9 +34,23 @@ interface ExperimentResponse {
   timestamp: string;
 }
 
+// Sample data for testing
+const SAMPLE_BRANDS: Brand[] = [
+  { id: 'dropbox', name: 'Dropbox', aliases: ['Dropbox Business', 'Dropbox Plus'], type: 'client' },
+  { id: 'google-drive', name: 'Google Drive', aliases: ['Google One', 'GDrive'], type: 'competitor' },
+  { id: 'onedrive', name: 'OneDrive', aliases: ['Microsoft OneDrive', 'OneDrive for Business'], type: 'competitor' },
+  { id: 'icloud', name: 'iCloud', aliases: ['iCloud Drive', 'Apple iCloud'], type: 'competitor' },
+];
+
+const SAMPLE_KEYWORDS: Keyword[] = [
+  { id: 'kw1', query: 'What is the best cloud storage for small business?', category: 'cloud-storage', intent: 'commercial' },
+  { id: 'kw2', query: 'Compare cloud storage providers for team collaboration', category: 'cloud-storage', intent: 'commercial' },
+  { id: 'kw3', query: 'Which cloud storage has the best security features?', category: 'cloud-storage', intent: 'informational' },
+];
+
 export function useExperiment() {
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [keywords, setKeywords] = useState<Keyword[]>([]);
+  const [brands, setBrands] = useState<Brand[]>(SAMPLE_BRANDS);
+  const [keywords, setKeywords] = useState<Keyword[]>(SAMPLE_KEYWORDS);
   const [models, setModels] = useState<ModelConfig[]>(DEFAULT_MODELS);
   const [results, setResults] = useState<ModelResult[]>([]);
   const [hasRun, setHasRun] = useState(false);
