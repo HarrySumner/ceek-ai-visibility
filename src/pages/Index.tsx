@@ -3,6 +3,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { BrandMatrix } from "@/components/dashboard/BrandMatrix";
 import { InsightsSummary } from "@/components/dashboard/InsightsSummary";
+import { AnalyticsDashboard } from "@/components/dashboard/AnalyticsDashboard";
 import { BrandManager } from "@/components/brands/BrandManager";
 import { KeywordManager } from "@/components/keywords/KeywordManager";
 import { ModelSelector } from "@/components/models/ModelSelector";
@@ -98,6 +99,9 @@ const Index = () => {
 
             {/* Results Matrix */}
             <BrandMatrix results={results} brands={brands} />
+
+            {/* Analytics Dashboard */}
+            <AnalyticsDashboard results={results} />
 
             {/* Insights */}
             <InsightsSummary insights={insights} />

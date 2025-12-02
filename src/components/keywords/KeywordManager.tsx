@@ -2,9 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, Search, Sparkles } from "lucide-react";
+import { Plus, X, Search, Sparkles, Loader2, Wand2 } from "lucide-react";
 import { Keyword } from "@/types";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface KeywordManagerProps {
   keywords: Keyword[];
@@ -17,115 +19,148 @@ const INTENT_OPTIONS: { value: Keyword['intent']; label: string; color: string }
   { value: 'transactional', label: 'Transactional', color: 'text-success' },
 ];
 
-const SUGGESTED_TEMPLATES = [
-  "best {category} for {audience}",
-  "which {category} is best for {use_case}?",
-  "compare top {category} providers",
-  "{category} recommendations for {context}",
-];
-
 export function KeywordManager({ keywords, onKeywordsChange }: KeywordManagerProps) {
-  const [newQuery, setNewQuery] = useState("");
-  const [newCategory, setNewCategory] = useState("");
-  const [newIntent, setNewIntent] = useState<Keyword['intent']>('commercial');
+  const [seedKeyword, setSeedKeyword] = useState("");
+  const [category, setCategory] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [variantCount, setVariantCount] = useState(6);
 
-  const addKeyword = () => {
-    if (!newQuery.trim()) return;
+  const generateVariants = async () => {
+    if (!seedKeyword.trim()) {
+      toast.error("Please enter a seed keyword");
+      return;
+    }
     
-    const newKeyword: Keyword = {
-      id: crypto.randomUUID(),
-      query: newQuery.trim(),
-      category: newCategory.trim() || undefined,
-      intent: newIntent,
-    };
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-keywords', {
+        body: {
+          seedKeyword: seedKeyword.trim(),
+          category: category.trim() || undefined,
+          count: variantCount,
+        }
+      });
 
-    onKeywordsChange([...keywords, newKeyword]);
-    setNewQuery("");
-    setNewCategory("");
+      if (error) {
+        throw error;
+      }
+
+      if (data?.keywords && Array.isArray(data.keywords)) {
+        onKeywordsChange([...keywords, ...data.keywords]);
+        toast.success(`Generated ${data.keywords.length} keyword variants`);
+        setSeedKeyword("");
+        setCategory("");
+      }
+    } catch (err) {
+      console.error("Failed to generate keywords:", err);
+      toast.error("Failed to generate keywords. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const removeKeyword = (id: string) => {
     onKeywordsChange(keywords.filter(k => k.id !== id));
   };
 
+  const clearAllKeywords = () => {
+    onKeywordsChange([]);
+    toast.success("All keywords cleared");
+  };
+
   return (
     <div className="space-y-6">
+      {/* Seed Keyword Input */}
       <div className="glass-card p-6 animate-fade-in">
-        <h3 className="font-semibold mb-4">Add New Keyword / Scenario</h3>
+        <div className="flex items-center gap-2 mb-4">
+          <Wand2 className="w-5 h-5 text-primary" />
+          <h3 className="font-semibold">Generate Keyword Variants</h3>
+        </div>
+        <p className="text-sm text-muted-foreground mb-6">
+          Enter a seed keyword and we'll auto-generate semantic variants for comprehensive testing
+        </p>
+        
         <div className="space-y-4">
           <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Search Query</label>
+            <label className="text-sm text-muted-foreground mb-2 block">Seed Keyword</label>
             <Input
-              placeholder="e.g., best cloud storage providers for small business"
-              value={newQuery}
-              onChange={(e) => setNewQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && addKeyword()}
+              placeholder="e.g., cloud storage, project management, CRM"
+              value={seedKeyword}
+              onChange={(e) => setSeedKeyword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && generateVariants()}
             />
           </div>
           
           <div>
             <label className="text-sm text-muted-foreground mb-2 block">Category (optional)</label>
             <Input
-              placeholder="e.g., cloud storage, travel insurance"
-              value={newCategory}
-              onChange={(e) => setNewCategory(e.target.value)}
+              placeholder="e.g., SaaS, enterprise software"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Search Intent</label>
+            <label className="text-sm text-muted-foreground mb-2 block">Number of Variants</label>
             <div className="flex gap-2">
-              {INTENT_OPTIONS.map((option) => (
+              {[4, 6, 8, 10].map((count) => (
                 <button
-                  key={option.value}
-                  onClick={() => setNewIntent(option.value)}
+                  key={count}
+                  onClick={() => setVariantCount(count)}
                   className={cn(
-                    "flex-1 p-3 rounded-lg border text-sm font-medium transition-all",
-                    newIntent === option.value 
-                      ? "border-primary bg-primary/10 text-primary" 
+                    "flex-1 p-3 rounded-lg border font-medium transition-all",
+                    variantCount === count
+                      ? "bg-primary text-primary-foreground border-primary"
                       : "border-border text-muted-foreground hover:border-primary/50"
                   )}
                 >
-                  {option.label}
+                  {count}
                 </button>
               ))}
             </div>
           </div>
           
-          <Button onClick={addKeyword} className="w-full">
-            <Plus className="w-4 h-4" />
-            Add Keyword
+          <Button 
+            onClick={generateVariants} 
+            className="w-full"
+            disabled={isGenerating || !seedKeyword.trim()}
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generating Variants...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                Generate Semantic Variants
+              </>
+            )}
           </Button>
         </div>
       </div>
 
+      {/* Generated Keywords */}
       <div className="glass-card p-6 animate-fade-in" style={{ animationDelay: '100ms' }}>
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="w-5 h-5 text-primary" />
-          <h3 className="font-semibold">Template Ideas</h3>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {SUGGESTED_TEMPLATES.map((template, idx) => (
-            <button
-              key={idx}
-              onClick={() => setNewQuery(template)}
-              className="px-3 py-1.5 rounded-full border border-border text-sm text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-            >
-              {template}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="glass-card p-6 animate-fade-in" style={{ animationDelay: '200ms' }}>
         <div className="flex items-center gap-2 mb-4">
           <Search className="w-5 h-5 text-primary" />
           <h3 className="font-semibold">Keywords</h3>
           <Badge variant="secondary" className="ml-auto">{keywords.length}</Badge>
+          {keywords.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={clearAllKeywords}>
+              Clear All
+            </Button>
+          )}
         </div>
         <div className="space-y-2">
           {keywords.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No keywords added yet</p>
+            <div className="text-center py-8">
+              <Search className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">No keywords yet</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter a seed keyword above to generate variants
+              </p>
+            </div>
           ) : (
             keywords.map((keyword) => (
               <div key={keyword.id} className="flex items-start justify-between p-4 rounded-lg bg-muted/50 group">
@@ -133,7 +168,7 @@ export function KeywordManager({ keywords, onKeywordsChange }: KeywordManagerPro
                   <p className="font-medium">{keyword.query}</p>
                   <div className="flex items-center gap-2 mt-2">
                     {keyword.category && (
-                      <Badge variant="muted">{keyword.category}</Badge>
+                      <Badge variant="secondary">{keyword.category}</Badge>
                     )}
                     {keyword.intent && (
                       <Badge variant="outline" className={cn(
