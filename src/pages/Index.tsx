@@ -9,7 +9,7 @@ import { ModelSelector } from "@/components/models/ModelSelector";
 import { ExperimentRunner } from "@/components/experiment/ExperimentRunner";
 import { ExportPanel } from "@/components/export/ExportPanel";
 import { useExperiment } from "@/hooks/useExperiment";
-import { Tags, Search, Cpu, BarChart3 } from "lucide-react";
+import { TrendingUp, Target, Activity, Zap } from "lucide-react";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -22,139 +22,107 @@ const Index = () => {
     setModels,
     results,
     hasRun,
+    isRunning,
+    progress,
+    currentStep,
     runExperiment,
     insights,
   } = useExperiment();
 
   const enabledModels = models.filter(m => m.enabled);
 
+  // Calculate aggregate metrics
+  const avgMentionRate = results.length > 0
+    ? results.reduce((sum, r) => 
+        sum + r.brandScores.reduce((s, bs) => s + bs.mentionRate, 0) / r.brandScores.length, 0
+      ) / results.length
+    : 0;
+
+  const avgComposite = results.length > 0
+    ? results.reduce((sum, r) => 
+        sum + r.brandScores.reduce((s, bs) => s + bs.compositeScore, 0) / r.brandScores.length, 0
+      ) / results.length
+    : 0;
+
+  const totalResponses = results.reduce((sum, r) => sum + r.responseCount, 0);
+
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard':
+      case "dashboard":
         return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold">Dashboard</h2>
-              <p className="text-muted-foreground mt-1">
-                Track how AI models mention and rank your brands
+          <div className="space-y-8">
+            {/* Hero Section */}
+            <div className="text-center py-8">
+              <h1 className="text-4xl md:text-5xl mb-4 text-foreground">
+                The unfair advantage to<br />brand visibility in AI.
+              </h1>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Track how AI models perceive and recommend your brand across different contexts and prompts.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <MetricCard
-                title="Brands Tracked"
-                value={brands.length}
-                subtitle={`${brands.filter(b => b.type === 'client').length} yours, ${brands.filter(b => b.type === 'competitor').length} competitors`}
-                icon={Tags}
-                variant="primary"
+                title="Average Mention Rate"
+                value={`${(avgMentionRate * 100).toFixed(1)}%`}
+                icon={<Target className="w-5 h-5" />}
+                trend={hasRun ? "+12% vs baseline" : undefined}
+                status={avgMentionRate > 0.5 ? "success" : avgMentionRate > 0.3 ? "warning" : "default"}
               />
               <MetricCard
-                title="Keywords"
-                value={keywords.length}
-                subtitle="Search scenarios"
-                icon={Search}
+                title="Composite Score"
+                value={avgComposite.toFixed(2)}
+                icon={<TrendingUp className="w-5 h-5" />}
+                description="Combined mention, rank & quality"
+                status={avgComposite > 0.6 ? "success" : avgComposite > 0.3 ? "warning" : "default"}
               />
               <MetricCard
-                title="Models Active"
-                value={enabledModels.length}
-                subtitle={`of ${models.length} available`}
-                icon={Cpu}
+                title="Models Tested"
+                value={enabledModels.length.toString()}
+                icon={<Activity className="w-5 h-5" />}
+                description={`of ${models.length} available`}
               />
               <MetricCard
-                title="Avg. Composite Score"
-                value={hasRun && results.length > 0 
-                  ? `${(results.flatMap(r => r.brandScores).reduce((sum, bs) => sum + bs.compositeScore, 0) / results.flatMap(r => r.brandScores).length * 100).toFixed(0)}%`
-                  : '—'
-                }
-                subtitle={hasRun ? "Across all brands" : "Run experiment first"}
-                icon={BarChart3}
-                variant={hasRun ? "success" : "default"}
+                title="Total Responses"
+                value={totalResponses.toString()}
+                icon={<Zap className="w-5 h-5" />}
+                description="API calls completed"
               />
             </div>
 
-            <div className="grid lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <BrandMatrix 
-                  results={results} 
-                  brands={brands}
-                />
-              </div>
-              <div>
-                <InsightsSummary insights={insights} />
-              </div>
-            </div>
+            {/* Results Matrix */}
+            <BrandMatrix results={results} brands={brands} />
+
+            {/* Insights */}
+            <InsightsSummary insights={insights} />
           </div>
         );
 
-      case 'brands':
+      case "brands":
+        return <BrandManager brands={brands} onBrandsChange={setBrands} />;
+
+      case "keywords":
+        return <KeywordManager keywords={keywords} onKeywordsChange={setKeywords} />;
+
+      case "models":
+        return <ModelSelector models={models} onModelsChange={setModels} />;
+
+      case "run":
         return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold">Brand Management</h2>
-              <p className="text-muted-foreground mt-1">
-                Add your brands and competitors to track
-              </p>
-            </div>
-            <BrandManager brands={brands} onBrandsChange={setBrands} />
-          </div>
+          <ExperimentRunner
+            brands={brands}
+            keywords={keywords}
+            models={models}
+            isRunning={isRunning}
+            progress={progress}
+            currentStep={currentStep}
+            onRunExperiment={runExperiment}
+          />
         );
 
-      case 'keywords':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold">Keywords & Scenarios</h2>
-              <p className="text-muted-foreground mt-1">
-                Define the search queries and scenarios to test
-              </p>
-            </div>
-            <KeywordManager keywords={keywords} onKeywordsChange={setKeywords} />
-          </div>
-        );
-
-      case 'models':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold">AI Models</h2>
-              <p className="text-muted-foreground mt-1">
-                Select which AI models to include in your experiments
-              </p>
-            </div>
-            <ModelSelector models={models} onModelsChange={setModels} />
-          </div>
-        );
-
-      case 'run':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold">Run Experiment</h2>
-              <p className="text-muted-foreground mt-1">
-                Configure and execute your brand rank tracking experiment
-              </p>
-            </div>
-            <ExperimentRunner
-              brands={brands}
-              keywords={keywords}
-              models={models}
-              onRunComplete={runExperiment}
-            />
-          </div>
-        );
-
-      case 'export':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold">Export Results</h2>
-              <p className="text-muted-foreground mt-1">
-                Download your data in various formats
-              </p>
-            </div>
-            <ExportPanel hasResults={hasRun} />
-          </div>
-        );
+      case "export":
+        return <ExportPanel results={results} brands={brands} keywords={keywords} />;
 
       default:
         return null;
@@ -164,8 +132,9 @@ const Index = () => {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      
       <main className="flex-1 p-8 overflow-auto">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           {renderContent()}
         </div>
       </main>

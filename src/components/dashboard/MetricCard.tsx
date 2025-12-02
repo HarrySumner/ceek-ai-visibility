@@ -1,25 +1,22 @@
 import { cn } from "@/lib/utils";
-import { LucideIcon } from "lucide-react";
+import { ReactNode } from "react";
 
 interface MetricCardProps {
   title: string;
   value: string | number;
-  subtitle?: string;
-  icon: LucideIcon;
-  trend?: {
-    value: number;
-    isPositive: boolean;
-  };
-  variant?: 'default' | 'primary' | 'success' | 'warning';
+  description?: string;
+  icon: ReactNode;
+  trend?: string;
+  status?: 'default' | 'success' | 'warning';
 }
 
 export function MetricCard({ 
   title, 
   value, 
-  subtitle, 
-  icon: Icon, 
+  description, 
+  icon, 
   trend,
-  variant = 'default' 
+  status = 'default' 
 }: MetricCardProps) {
   return (
     <div className="glass-card p-6 animate-fade-in">
@@ -28,39 +25,33 @@ export function MetricCard({
           <p className="text-sm text-muted-foreground">{title}</p>
           <p className={cn(
             "text-3xl font-bold mt-2 font-mono",
-            variant === 'primary' && "text-gradient",
-            variant === 'success' && "text-success",
-            variant === 'warning' && "text-warning"
+            status === 'success' && "text-success",
+            status === 'warning' && "text-warning"
           )}>
             {value}
           </p>
-          {subtitle && (
-            <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+          {description && (
+            <p className="text-sm text-muted-foreground mt-1">{description}</p>
           )}
           {trend && (
-            <div className={cn(
-              "inline-flex items-center mt-2 text-xs font-medium",
-              trend.isPositive ? "text-success" : "text-destructive"
-            )}>
-              {trend.isPositive ? "↑" : "↓"} {Math.abs(trend.value)}%
-              <span className="text-muted-foreground ml-1">vs last run</span>
+            <div className="inline-flex items-center mt-2 text-xs font-medium text-success">
+              {trend}
             </div>
           )}
         </div>
         <div className={cn(
           "w-12 h-12 rounded-xl flex items-center justify-center",
-          variant === 'primary' && "bg-primary/20",
-          variant === 'success' && "bg-success/20",
-          variant === 'warning' && "bg-warning/20",
-          variant === 'default' && "bg-secondary"
+          status === 'success' && "bg-success/10",
+          status === 'warning' && "bg-warning/10",
+          status === 'default' && "bg-secondary"
         )}>
-          <Icon className={cn(
-            "w-6 h-6",
-            variant === 'primary' && "text-primary",
-            variant === 'success' && "text-success",
-            variant === 'warning' && "text-warning",
-            variant === 'default' && "text-muted-foreground"
-          )} />
+          <div className={cn(
+            status === 'success' && "text-success",
+            status === 'warning' && "text-warning",
+            status === 'default' && "text-muted-foreground"
+          )}>
+            {icon}
+          </div>
         </div>
       </div>
     </div>

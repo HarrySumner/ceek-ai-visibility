@@ -1,0 +1,4 @@
+project_id = "jxsjezruyljqcqqxixst"
+
+[functions.run-experiment]
+verify_jwt = false
