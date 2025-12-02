@@ -28,6 +28,8 @@ export interface BrandMention {
   position: number | null;
   numMentions: number;
   contextSnippets: string[];
+  confidence: number;
+  disambiguationNotes: string[];
 }
 
 export interface ResponseRecord {

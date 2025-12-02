@@ -17,8 +17,17 @@ interface ExperimentResponse {
     position: number | null;
     numMentions: number;
     contextSnippets: string[];
+    confidence: number;
+    disambiguationNotes: string[];
   }>;
-  contentQuality: ContentQuality;
+  contentQuality: ContentQuality & {
+    structureMarkers?: {
+      hasTable: boolean;
+      hasNumberedList: boolean;
+      hasBulletList: boolean;
+      hasComparison: boolean;
+    };
+  };
   modelId: string;
   promptVariant: PromptVariant;
   keyword: string;
