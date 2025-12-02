@@ -14,7 +14,74 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      experiment_results: {
+        Row: {
+          avg_content_quality: Json | null
+          brand_scores: Json
+          created_at: string
+          experiment_id: string
+          id: string
+          model_id: string
+          model_name: string
+          response_count: number
+        }
+        Insert: {
+          avg_content_quality?: Json | null
+          brand_scores?: Json
+          created_at?: string
+          experiment_id: string
+          id?: string
+          model_id: string
+          model_name: string
+          response_count?: number
+        }
+        Update: {
+          avg_content_quality?: Json | null
+          brand_scores?: Json
+          created_at?: string
+          experiment_id?: string
+          id?: string
+          model_id?: string
+          model_name?: string
+          response_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experiment_results_experiment_id_fkey"
+            columns: ["experiment_id"]
+            isOneToOne: false
+            referencedRelation: "experiments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      experiments: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          name: string | null
+          status: string
+          total_responses: number | null
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name?: string | null
+          status?: string
+          total_responses?: number | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name?: string | null
+          status?: string
+          total_responses?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

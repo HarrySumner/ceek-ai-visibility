@@ -6,7 +6,8 @@ import {
   Cpu, 
   Play, 
   Download,
-  Eye
+  Eye,
+  History
 } from "lucide-react";
 
 interface SidebarProps {
@@ -20,6 +21,7 @@ const tabs = [
   { id: 'keywords', label: 'Keywords', icon: Search },
   { id: 'models', label: 'Models', icon: Cpu },
   { id: 'run', label: 'Run', icon: Play },
+  { id: 'history', label: 'History', icon: History },
   { id: 'export', label: 'Export', icon: Download },
 ];
 
