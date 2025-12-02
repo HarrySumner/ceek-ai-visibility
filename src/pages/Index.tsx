@@ -8,6 +8,7 @@ import { KeywordManager } from "@/components/keywords/KeywordManager";
 import { ModelSelector } from "@/components/models/ModelSelector";
 import { ExperimentRunner } from "@/components/experiment/ExperimentRunner";
 import { ExportPanel } from "@/components/export/ExportPanel";
+import { ExperimentHistory } from "@/components/history/ExperimentHistory";
 import { useExperiment } from "@/hooks/useExperiment";
 import { TrendingUp, Target, Activity, Zap } from "lucide-react";
 
@@ -27,6 +28,10 @@ const Index = () => {
     currentStep,
     runExperiment,
     insights,
+    savedExperiments,
+    loadExperiment,
+    deleteExperiment,
+    currentExperimentId,
   } = useExperiment();
 
   const enabledModels = models.filter(m => m.enabled);
@@ -118,6 +123,16 @@ const Index = () => {
             progress={progress}
             currentStep={currentStep}
             onRunExperiment={runExperiment}
+          />
+        );
+
+      case "history":
+        return (
+          <ExperimentHistory
+            experiments={savedExperiments}
+            currentExperimentId={currentExperimentId}
+            onLoad={loadExperiment}
+            onDelete={deleteExperiment}
           />
         );
 
