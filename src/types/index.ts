@@ -16,7 +16,7 @@ export type PromptVariant = 'minimal' | 'frontloaded' | 'stepwise';
 
 export interface ModelConfig {
   id: string;
-  provider: 'openai' | 'google' | 'anthropic' | 'deepseek';
+  provider: 'lovable' | 'openai' | 'google' | 'anthropic' | 'deepseek';
   name: string;
   displayName: string;
   enabled: boolean;
@@ -41,10 +41,21 @@ export interface ResponseRecord {
   timestamp: Date;
 }
 
+// NLP Content Quality Framework (Ghosh 2024)
 export interface ContentQuality {
+  // Sentiment (0.4-0.6 optimal for analytical neutrality)
+  sentiment: number;
+  // Readability (Flesch-Kincaid Grade Level, 8-10 optimal)
   readability: number;
-  explanationDepth: number;
-  balancedTone: number;
+  // Persuasiveness - technical vocabulary density (0.06-0.10 optimal)
+  persuasiveness: number;
+  // Clarity - inverse word length (higher = clearer)
+  clarity: number;
+  // Emotional appeal - emotional word density (0.01-0.03 optimal)
+  emotionalAppeal: number;
+  // Explanatory directiveness - directive phrase density (0.10-0.30 optimal)
+  explanatoryDirectiveness: number;
+  // Overall composite score (0-1)
   overall: number;
 }
 
@@ -55,6 +66,10 @@ export interface BrandScore {
   avgRank: number | null;
   qualityScore: number;
   compositeScore: number;
+  // Precision, Recall, F1 metrics
+  precision?: number;
+  recall?: number;
+  f1?: number;
   status: 'success' | 'warning' | 'destructive';
 }
 
@@ -63,6 +78,7 @@ export interface ModelResult {
   modelName: string;
   brandScores: BrandScore[];
   responseCount: number;
+  avgContentQuality?: ContentQuality;
 }
 
 export interface ExperimentConfig {
@@ -79,4 +95,11 @@ export interface ExperimentResults {
   results: ModelResult[];
   summary: string;
   createdAt: Date;
+}
+
+// Scoring weights configuration
+export interface ScoringWeights {
+  mentionWeight: number; // default 0.4
+  rankWeight: number; // default 0.3
+  qualityWeight: number; // default 0.3
 }
