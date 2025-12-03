@@ -1,7 +1,7 @@
 import { SavedExperiment } from "@/hooks/useExperiment";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { History, Trash2, Eye, Calendar, Database } from "lucide-react";
+import { History, Trash2, Eye, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ExperimentHistoryProps {
@@ -33,10 +33,10 @@ export function ExperimentHistory({
     <div className="space-y-6">
       <div className="glass-card p-6">
         <div className="flex items-center gap-3 mb-6">
-          <Database className="w-6 h-6 text-primary" />
           <div>
-            <h3 className="text-2xl">Experiment History</h3>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs text-muted-foreground tracking-widest uppercase mb-2">Diagnostics</p>
+            <h3 className="text-2xl" style={{ fontFamily: "'DM Serif Display', serif" }}>Experiment History</h3>
+            <p className="text-sm text-muted-foreground mt-1">
               {experiments.length} saved experiment{experiments.length !== 1 ? 's' : ''}
             </p>
           </div>

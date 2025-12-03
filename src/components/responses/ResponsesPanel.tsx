@@ -30,11 +30,11 @@ export function ResponsesPanel({ results }: ResponsesPanelProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl mb-2 text-foreground" style={{ fontFamily: "'DM Serif Display', serif" }}>
+        <div className="py-2">
+          <p className="text-xs text-muted-foreground tracking-widest uppercase mb-2">Results</p>
+          <h1 className="text-3xl text-foreground" style={{ fontFamily: "'DM Serif Display', serif" }}>
             Check Responses
           </h1>
-          <p className="text-muted-foreground">Review raw model outputs</p>
         </div>
         <Select value={selectedModel} onValueChange={setSelectedModel}>
           <SelectTrigger className="w-48">

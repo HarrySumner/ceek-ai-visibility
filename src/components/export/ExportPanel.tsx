@@ -98,10 +98,8 @@ export function ExportPanel({ results, brands, keywords }: ExportPanelProps) {
   return (
     <div className="space-y-6">
       <div className="glass-card p-6 animate-fade-in">
-        <h3 className="text-2xl mb-2">Export Results</h3>
-        <p className="text-sm text-muted-foreground mb-6">
-          Download your experiment results in various formats
-        </p>
+        <p className="text-xs text-muted-foreground tracking-widest uppercase mb-2">Data</p>
+        <h3 className="text-2xl mb-4" style={{ fontFamily: "'DM Serif Display', serif" }}>Export Results</h3>
 
         <div className="space-y-3">
           {EXPORT_OPTIONS.map((option, idx) => {

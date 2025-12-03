@@ -70,11 +70,11 @@ export function CompareModelsPanel({ results, brands }: CompareModelsPanelProps)
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl mb-2 text-foreground" style={{ fontFamily: "'DM Serif Display', serif" }}>
+      <div className="py-2">
+        <p className="text-xs text-muted-foreground tracking-widest uppercase mb-2">Comparison</p>
+        <h1 className="text-3xl text-foreground" style={{ fontFamily: "'DM Serif Display', serif" }}>
           Compare Models
         </h1>
-        <p className="text-muted-foreground">Side-by-side model performance analysis</p>
       </div>
 
       {/* Best Performer */}
