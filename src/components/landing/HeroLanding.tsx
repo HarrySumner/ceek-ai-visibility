@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
+import ceekLogo from "@/assets/ceek-logo.png";
 
 interface HeroLandingProps {
   onGetStarted: () => void;
@@ -12,6 +13,7 @@ export function HeroLanding({ onGetStarted }: HeroLandingProps) {
       <div className="bg-sidebar text-sidebar-foreground rounded-2xl overflow-hidden">
         <div className="px-8 py-16 md:px-16 md:py-24 lg:py-32">
           <div className="max-w-3xl">
+            <img src={ceekLogo} alt="CEEK" className="h-8 mb-6 brightness-0 invert opacity-90" />
             <p className="text-xs tracking-[0.3em] uppercase text-sidebar-foreground/50 mb-6">
               AI Brand Visibility
             </p>
