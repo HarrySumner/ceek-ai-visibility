@@ -48,18 +48,18 @@ export interface SavedExperiment {
   results?: ModelResult[];
 }
 
-// Sample data for testing
+// Sample data for luxury fashion brands
 const SAMPLE_BRANDS: Brand[] = [
-  { id: 'dropbox', name: 'Dropbox', aliases: ['Dropbox Business', 'Dropbox Plus'], type: 'client' },
-  { id: 'google-drive', name: 'Google Drive', aliases: ['Google One', 'GDrive'], type: 'competitor' },
-  { id: 'onedrive', name: 'OneDrive', aliases: ['Microsoft OneDrive', 'OneDrive for Business'], type: 'competitor' },
-  { id: 'icloud', name: 'iCloud', aliases: ['iCloud Drive', 'Apple iCloud'], type: 'competitor' },
+  { id: 'hermes', name: 'Hermès', aliases: ['Hermes', 'Hermès Paris'], type: 'client' },
+  { id: 'louis-vuitton', name: 'Louis Vuitton', aliases: ['LV', 'Vuitton', 'LVMH'], type: 'competitor' },
+  { id: 'gucci', name: 'Gucci', aliases: ['Gucci by Kering', 'House of Gucci'], type: 'competitor' },
+  { id: 'chanel', name: 'Chanel', aliases: ['CHANEL', 'House of Chanel'], type: 'competitor' },
 ];
 
 const SAMPLE_KEYWORDS: Keyword[] = [
-  { id: 'kw1', query: 'What is the best cloud storage for small business?', category: 'cloud-storage', intent: 'commercial' },
-  { id: 'kw2', query: 'Compare cloud storage providers for team collaboration', category: 'cloud-storage', intent: 'commercial' },
-  { id: 'kw3', query: 'Which cloud storage has the best security features?', category: 'cloud-storage', intent: 'informational' },
+  { id: 'kw1', query: 'What are the best luxury handbag brands to invest in?', category: 'luxury-fashion', intent: 'commercial' },
+  { id: 'kw2', query: 'Compare heritage luxury fashion houses for quality craftsmanship', category: 'luxury-fashion', intent: 'commercial' },
+  { id: 'kw3', query: 'Which luxury brand has the best resale value?', category: 'luxury-fashion', intent: 'informational' },
 ];
 
 export function useExperiment() {
