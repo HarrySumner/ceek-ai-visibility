@@ -110,7 +110,6 @@ export function AskPanel({
   // Run experiment - conversation mode tests all 3 CFF variants per call
   const canRun = brands.length > 0 && keywords.length > 0 && enabledModels.length > 0;
   const totalConversations = keywords.length * enabledModels.length * runsPerCombination;
-  const totalResponses = totalConversations * 3; // 3 CFF variants per conversation
 
   return (
     <div className="space-y-6">
@@ -225,10 +224,7 @@ export function AskPanel({
             <div className="space-y-1">
               <p className="font-medium">Ready to run</p>
               <p className="text-sm text-muted-foreground">
-                {keywords.length} keywords × {enabledModels.length} models = <strong>{totalConversations}</strong> conversations
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Each conversation tests 3 CFF variants in sequence → <strong>{totalResponses}</strong> total responses
+                <strong>{totalConversations}</strong> synthetic conversations with <strong>{enabledModels.length}</strong> models about your brand
               </p>
             </div>
             <div className="flex items-center gap-4">
