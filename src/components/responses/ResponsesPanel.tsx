@@ -3,9 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { ModelResult, ContentQuality } from "@/types";
+import { ModelResult, ContentQuality, Brand } from "@/types";
 import { FileText, RotateCcw, Brain, BarChart3, ArrowRight, CheckCircle2 } from "lucide-react";
 import { ConversationVisualizer } from "@/components/conversation/ConversationVisualizer";
+import { RawResponseViewer, RawResponse } from "./RawResponseViewer";
 import {
   Tooltip,
   TooltipContent,
@@ -15,6 +16,8 @@ import {
 
 interface ResponsesPanelProps {
   results: ModelResult[];
+  rawResponses?: RawResponse[];
+  brands?: Brand[];
   onNavigateToNLP?: () => void;
 }
 
@@ -69,7 +72,7 @@ function aggregateResults(results: ModelResult[]): {
   return { totalResponses, avgQuality, brandSummary, modelsUsed };
 }
 
-export function ResponsesPanel({ results, onNavigateToNLP }: ResponsesPanelProps) {
+export function ResponsesPanel({ results, rawResponses = [], brands = [], onNavigateToNLP }: ResponsesPanelProps) {
   const [showConversation, setShowConversation] = useState(true);
   const [conversationKey, setConversationKey] = useState(0);
   const [speed, setSpeed] = useState([7]);
@@ -188,6 +191,7 @@ export function ResponsesPanel({ results, onNavigateToNLP }: ResponsesPanelProps
 
       {/* Results Summary - Model Agnostic */}
       {hasResults ? (
+        <>
         <Card className="overflow-hidden">
           <CardHeader className="pb-3 bg-muted/30">
             <div className="flex items-center justify-between">
@@ -280,6 +284,10 @@ export function ResponsesPanel({ results, onNavigateToNLP }: ResponsesPanelProps
             </div>
           </CardContent>
         </Card>
+
+        {/* Raw Response Viewer */}
+        <RawResponseViewer responses={rawResponses} brands={brands} />
+      </>
       ) : (
         <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed border-border rounded-lg">
           <FileText className="w-10 h-10 text-muted-foreground/50 mb-3" />

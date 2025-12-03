@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Brand, Keyword, ModelConfig, ModelResult, PromptVariant, ContentQuality, BrandScore } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { RawResponse } from "@/components/responses/RawResponseViewer";
 
 const DEFAULT_MODELS: ModelConfig[] = [
   { id: 'gemini-2.5-flash', provider: 'lovable', name: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', enabled: true },
@@ -67,6 +68,7 @@ export function useExperiment() {
   const [keywords, setKeywords] = useState<Keyword[]>(SAMPLE_KEYWORDS);
   const [models, setModels] = useState<ModelConfig[]>(DEFAULT_MODELS);
   const [results, setResults] = useState<ModelResult[]>([]);
+  const [rawResponses, setRawResponses] = useState<RawResponse[]>([]);
   const [hasRun, setHasRun] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -231,12 +233,14 @@ export function useExperiment() {
 
     setIsRunning(true);
     setProgress(0);
+    setRawResponses([]); // Clear previous raw responses
     
     // In conversation mode, we make one call per keyword/model (tests all 3 CFF variants in sequence)
     const totalCalls = keywords.length * enabledModels.length * runsPerCombination;
     let completedCalls = 0;
     
     const responsesByModel: Record<string, ExperimentResponse[]> = {};
+    const collectedRawResponses: RawResponse[] = [];
     
     for (const model of enabledModels) {
       responsesByModel[model.id] = [];
@@ -279,10 +283,29 @@ export function useExperiment() {
                     contentQuality: variantData.contentQuality,
                     promptVariant: variantKey as PromptVariant,
                   } as ExperimentResponse);
+                  
+                  // Collect for raw response viewer
+                  collectedRawResponses.push({
+                    id: `${model.id}-${keyword.id}-${variantKey}-${run}`,
+                    modelId: model.id,
+                    modelName: model.displayName,
+                    keyword: keyword.query,
+                    rawText: variantData.response,
+                    brandMentions: variantData.brandMentions,
+                  });
                 }
               } else if (data) {
                 // Fallback for non-conversation mode
                 responsesByModel[model.id].push(data as ExperimentResponse);
+                
+                collectedRawResponses.push({
+                  id: `${model.id}-${keyword.id}-${run}`,
+                  modelId: model.id,
+                  modelName: model.displayName,
+                  keyword: keyword.query,
+                  rawText: data.rawResponse || "",
+                  brandMentions: data.brandMentions || {},
+                });
               }
             } catch (err) {
               console.error('API call failed:', err);
@@ -350,6 +373,7 @@ export function useExperiment() {
       });
 
       setResults(aggregatedResults);
+      setRawResponses(collectedRawResponses);
       setHasRun(true);
       
       // Save to database
@@ -377,6 +401,7 @@ export function useExperiment() {
     models,
     setModels,
     results,
+    rawResponses,
     hasRun,
     isRunning,
     progress,
