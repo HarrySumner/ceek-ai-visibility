@@ -112,11 +112,11 @@ export function AskPanel({
 
   return (
     <div className="space-y-6">
-      <div className="text-center py-4">
-        <h1 className="text-3xl mb-2 text-foreground" style={{ fontFamily: "'DM Serif Display', serif" }}>
+      <div className="py-2">
+        <p className="text-xs text-muted-foreground tracking-widest uppercase mb-2">Experiment</p>
+        <h1 className="text-3xl text-foreground" style={{ fontFamily: "'DM Serif Display', serif" }}>
           Ask a LLM
         </h1>
-        <p className="text-muted-foreground">Configure your experiment and run it</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

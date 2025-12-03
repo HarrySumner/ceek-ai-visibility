@@ -58,11 +58,12 @@ export function NLPAnalysisPanel({ results }: NLPAnalysisPanelProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl mb-2 text-foreground" style={{ fontFamily: "'DM Serif Display', serif" }}>
+      <div className="py-2">
+        <p className="text-xs text-muted-foreground tracking-widest uppercase mb-2">Analysis</p>
+        <h1 className="text-3xl text-foreground" style={{ fontFamily: "'DM Serif Display', serif" }}>
           NLP Analysis
         </h1>
-        <p className="text-muted-foreground">Content quality metrics & CFF variant analysis based on Ghosh (2024) framework</p>
+        <p className="text-muted-foreground mt-1">Content quality metrics & CFF variant analysis based on Ghosh (2024) framework</p>
       </div>
 
       <Tabs defaultValue="metrics" className="w-full">
