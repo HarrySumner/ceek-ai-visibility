@@ -77,11 +77,12 @@ export function AskPanel({
 
       if (error) throw error;
 
-      const newKeywords: Keyword[] = data.keywords.map((query: string) => ({
-        id: crypto.randomUUID(),
-        query,
-        category: seedKeyword.trim(),
-        intent: 'informational' as const,
+      // Edge function returns full Keyword objects
+      const newKeywords: Keyword[] = data.keywords.map((kw: { id?: string; query: string; category?: string; intent?: string }) => ({
+        id: kw.id || crypto.randomUUID(),
+        query: kw.query,
+        category: kw.category || seedKeyword.trim(),
+        intent: (kw.intent as 'informational' | 'commercial' | 'transactional') || 'informational',
       }));
 
       setKeywords([...keywords, ...newKeywords]);
