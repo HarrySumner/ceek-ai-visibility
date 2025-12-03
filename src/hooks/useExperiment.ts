@@ -247,76 +247,98 @@ export function useExperiment() {
     }
 
     try {
+      // Build all call configurations
+      const allCalls: { keyword: Keyword; model: ModelConfig; run: number }[] = [];
       for (const keyword of keywords) {
         for (const model of enabledModels) {
           for (let run = 0; run < runsPerCombination; run++) {
-            setCurrentStep(`${model.displayName}: "${keyword.query.substring(0, 30)}..." (conversation mode)`);
-            
-            try {
-              // Use conversation mode - tests all 3 CFF variants in a single multi-turn conversation
-              const { data, error } = await supabase.functions.invoke('run-experiment', {
-                body: {
-                  keyword: keyword.query,
-                  brands,
-                  modelId: model.id,
-                  promptVariant: 'minimal', // Starting point
-                  conversationMode: true,   // Enable multi-turn CFF detection
-                }
-              });
+            allCalls.push({ keyword, model, run });
+          }
+        }
+      }
 
-              if (error) {
-                console.error('Experiment error:', error);
-                toast.error(`Error with ${model.displayName}: ${error.message}`);
-              } else if (data?.conversationMode && data?.variants) {
-                // Conversation mode returns all 3 variants
-                const variants = data.variants as Record<string, {
-                  response: string;
-                  brandMentions: Record<string, any>;
-                  contentQuality: ContentQuality;
-                }>;
-                
-                // Add each variant as a separate response for aggregation
-                for (const [variantKey, variantData] of Object.entries(variants)) {
-                  responsesByModel[model.id].push({
-                    rawResponse: variantData.response,
-                    brandMentions: variantData.brandMentions,
-                    contentQuality: variantData.contentQuality,
-                    promptVariant: variantKey as PromptVariant,
-                  } as ExperimentResponse);
-                  
-                  // Collect for raw response viewer
-                  collectedRawResponses.push({
-                    id: `${model.id}-${keyword.id}-${variantKey}-${run}`,
-                    modelId: model.id,
-                    modelName: model.displayName,
-                    keyword: keyword.query,
-                    rawText: variantData.response,
-                    brandMentions: variantData.brandMentions,
-                  });
-                }
-              } else if (data) {
-                // Fallback for non-conversation mode
-                responsesByModel[model.id].push(data as ExperimentResponse);
-                
-                collectedRawResponses.push({
-                  id: `${model.id}-${keyword.id}-${run}`,
-                  modelId: model.id,
-                  modelName: model.displayName,
-                  keyword: keyword.query,
-                  rawText: data.rawResponse || "",
-                  brandMentions: data.brandMentions || {},
-                });
+      // Process in parallel batches of 4 to avoid rate limits
+      const BATCH_SIZE = 4;
+      for (let i = 0; i < allCalls.length; i += BATCH_SIZE) {
+        const batch = allCalls.slice(i, i + BATCH_SIZE);
+        setCurrentStep(`Running ${batch.length} conversations in parallel (${i + 1}-${Math.min(i + BATCH_SIZE, allCalls.length)} of ${allCalls.length})`);
+        
+        const batchPromises = batch.map(async ({ keyword, model, run }) => {
+          try {
+            const { data, error } = await supabase.functions.invoke('run-experiment', {
+              body: {
+                keyword: keyword.query,
+                brands,
+                modelId: model.id,
+                promptVariant: 'minimal',
+                conversationMode: true,
               }
-            } catch (err) {
-              console.error('API call failed:', err);
+            });
+
+            if (error) {
+              console.error('Experiment error:', error);
+              toast.error(`Error with ${model.displayName}: ${error.message}`);
+              return null;
             }
             
-            completedCalls++;
-            setProgress(Math.round((completedCalls / totalCalls) * 100));
-            
-            // Longer delay between conversation calls to avoid rate limits
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            return { data, model, keyword, run };
+          } catch (err) {
+            console.error('API call failed:', err);
+            return null;
           }
+        });
+
+        const batchResults = await Promise.all(batchPromises);
+        
+        // Process batch results
+        for (const result of batchResults) {
+          if (!result) continue;
+          const { data, model, keyword, run } = result;
+          
+          if (data?.conversationMode && data?.variants) {
+            const variants = data.variants as Record<string, {
+              response: string;
+              brandMentions: Record<string, any>;
+              contentQuality: ContentQuality;
+            }>;
+            
+            for (const [variantKey, variantData] of Object.entries(variants)) {
+              responsesByModel[model.id].push({
+                rawResponse: variantData.response,
+                brandMentions: variantData.brandMentions,
+                contentQuality: variantData.contentQuality,
+                promptVariant: variantKey as PromptVariant,
+              } as ExperimentResponse);
+              
+              collectedRawResponses.push({
+                id: `${model.id}-${keyword.id}-${variantKey}-${run}`,
+                modelId: model.id,
+                modelName: model.displayName,
+                keyword: keyword.query,
+                rawText: variantData.response,
+                brandMentions: variantData.brandMentions,
+              });
+            }
+          } else if (data) {
+            responsesByModel[model.id].push(data as ExperimentResponse);
+            
+            collectedRawResponses.push({
+              id: `${model.id}-${keyword.id}-${run}`,
+              modelId: model.id,
+              modelName: model.displayName,
+              keyword: keyword.query,
+              rawText: data.rawResponse || "",
+              brandMentions: data.brandMentions || {},
+            });
+          }
+        }
+        
+        completedCalls += batch.length;
+        setProgress(Math.round((completedCalls / totalCalls) * 100));
+        
+        // Small delay between batches to avoid rate limits
+        if (i + BATCH_SIZE < allCalls.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       }
 

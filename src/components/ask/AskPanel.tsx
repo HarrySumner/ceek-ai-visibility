@@ -110,6 +110,14 @@ export function AskPanel({
   // Run experiment - conversation mode tests all 3 CFF variants per call
   const canRun = brands.length > 0 && keywords.length > 0 && enabledModels.length > 0;
   const totalConversations = keywords.length * enabledModels.length * runsPerCombination;
+  
+  // Estimate: ~15s per conversation, running 4 in parallel
+  const estimatedSeconds = Math.ceil(totalConversations / 4) * 15;
+  const estimatedMinutes = Math.floor(estimatedSeconds / 60);
+  const remainingSeconds = estimatedSeconds % 60;
+  const estimatedTime = estimatedMinutes > 0 
+    ? `~${estimatedMinutes}m ${remainingSeconds}s` 
+    : `~${estimatedSeconds}s`;
 
   return (
     <div className="space-y-6">
@@ -225,6 +233,9 @@ export function AskPanel({
               <p className="font-medium">Ready to run</p>
               <p className="text-sm text-muted-foreground">
                 <strong>{totalConversations}</strong> synthetic conversations with <strong>{enabledModels.length}</strong> models about your brand
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Estimated time: <strong>{estimatedTime}</strong> (running 4 in parallel)
               </p>
             </div>
             <div className="flex items-center gap-4">
