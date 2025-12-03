@@ -20,6 +20,7 @@ const Index = () => {
     models,
     setModels,
     results,
+    rawResponses,
     hasRun,
     isRunning,
     progress,
@@ -61,7 +62,14 @@ const Index = () => {
         );
 
       case "responses":
-        return <ResponsesPanel results={results} onNavigateToNLP={() => setActiveTab("nlp")} />;
+        return (
+          <ResponsesPanel 
+            results={results} 
+            rawResponses={rawResponses}
+            brands={brands}
+            onNavigateToNLP={() => setActiveTab("nlp")} 
+          />
+        );
 
       case "export":
         return <ExportPanel results={results} brands={brands} keywords={keywords} />;
