@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,12 +23,6 @@ interface AskPanelProps {
   onRunExperiment: (variants: PromptVariant[], runsPerCombination: number) => void;
 }
 
-const PROMPT_VARIANTS: { id: PromptVariant; name: string; description: string }[] = [
-  { id: 'minimal', name: 'Minimal', description: 'Natural response' },
-  { id: 'frontloaded', name: 'Frontloaded', description: 'Table/checklist format' },
-  { id: 'stepwise', name: 'Stepwise', description: 'Criteria-first evaluation' },
-];
-
 export function AskPanel({
   brands,
   setBrands,
@@ -44,8 +38,10 @@ export function AskPanel({
   const [newBrandName, setNewBrandName] = useState("");
   const [seedKeyword, setSeedKeyword] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [selectedVariants, setSelectedVariants] = useState<PromptVariant[]>(['minimal']);
   const [runsPerCombination, setRunsPerCombination] = useState(1);
+  
+  // Use all CFF variants by default (analysis happens in NLP panel)
+  const selectedVariants: PromptVariant[] = ['minimal', 'frontloaded', 'stepwise'];
 
   const enabledModels = models.filter(m => m.enabled);
 
@@ -110,17 +106,8 @@ export function AskPanel({
     ));
   };
 
-  // Variant management
-  const toggleVariant = (variant: PromptVariant) => {
-    setSelectedVariants(prev =>
-      prev.includes(variant)
-        ? prev.filter(v => v !== variant)
-        : [...prev, variant]
-    );
-  };
-
   // Run experiment
-  const canRun = brands.length > 0 && keywords.length > 0 && enabledModels.length > 0 && selectedVariants.length > 0;
+  const canRun = brands.length > 0 && keywords.length > 0 && enabledModels.length > 0;
   const totalCalls = keywords.length * enabledModels.length * selectedVariants.length * runsPerCombination;
 
   return (
@@ -227,32 +214,6 @@ export function AskPanel({
           </CardContent>
         </Card>
 
-        {/* Prompt Variants */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">CFF Variants</CardTitle>
-            <CardDescription>Cognitive Forcing Functions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {PROMPT_VARIANTS.map((variant) => (
-                <label
-                  key={variant.id}
-                  className="flex items-center gap-3 p-2 rounded-lg border cursor-pointer hover:bg-muted/50 transition-colors"
-                >
-                  <Checkbox
-                    checked={selectedVariants.includes(variant.id)}
-                    onCheckedChange={() => toggleVariant(variant.id)}
-                  />
-                  <div>
-                    <span className="font-medium text-sm">{variant.name}</span>
-                    <p className="text-xs text-muted-foreground">{variant.description}</p>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Run Section */}
@@ -262,7 +223,7 @@ export function AskPanel({
             <div className="space-y-1">
               <p className="font-medium">Ready to run</p>
               <p className="text-sm text-muted-foreground">
-                {brands.length} brands × {keywords.length} keywords × {enabledModels.length} models × {selectedVariants.length} variants = <strong>{totalCalls}</strong> API calls
+                {brands.length} brands × {keywords.length} keywords × {enabledModels.length} models × 3 CFF variants = <strong>{totalCalls}</strong> API calls
               </p>
             </div>
             <div className="flex items-center gap-4">
