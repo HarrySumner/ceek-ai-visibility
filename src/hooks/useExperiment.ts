@@ -232,7 +232,8 @@ export function useExperiment() {
     setIsRunning(true);
     setProgress(0);
     
-    const totalCalls = keywords.length * enabledModels.length * selectedVariants.length * runsPerCombination;
+    // In conversation mode, we make one call per keyword/model (tests all 3 CFF variants in sequence)
+    const totalCalls = keywords.length * enabledModels.length * runsPerCombination;
     let completedCalls = 0;
     
     const responsesByModel: Record<string, ExperimentResponse[]> = {};
@@ -244,35 +245,54 @@ export function useExperiment() {
     try {
       for (const keyword of keywords) {
         for (const model of enabledModels) {
-          for (const variant of selectedVariants) {
-            for (let run = 0; run < runsPerCombination; run++) {
-              setCurrentStep(`${model.displayName}: "${keyword.query.substring(0, 30)}..." (${variant})`);
-              
-              try {
-                const { data, error } = await supabase.functions.invoke('run-experiment', {
-                  body: {
-                    keyword: keyword.query,
-                    brands,
-                    modelId: model.id,
-                    promptVariant: variant,
-                  }
-                });
-
-                if (error) {
-                  console.error('Experiment error:', error);
-                  toast.error(`Error with ${model.displayName}: ${error.message}`);
-                } else if (data) {
-                  responsesByModel[model.id].push(data as ExperimentResponse);
+          for (let run = 0; run < runsPerCombination; run++) {
+            setCurrentStep(`${model.displayName}: "${keyword.query.substring(0, 30)}..." (conversation mode)`);
+            
+            try {
+              // Use conversation mode - tests all 3 CFF variants in a single multi-turn conversation
+              const { data, error } = await supabase.functions.invoke('run-experiment', {
+                body: {
+                  keyword: keyword.query,
+                  brands,
+                  modelId: model.id,
+                  promptVariant: 'minimal', // Starting point
+                  conversationMode: true,   // Enable multi-turn CFF detection
                 }
-              } catch (err) {
-                console.error('API call failed:', err);
+              });
+
+              if (error) {
+                console.error('Experiment error:', error);
+                toast.error(`Error with ${model.displayName}: ${error.message}`);
+              } else if (data?.conversationMode && data?.variants) {
+                // Conversation mode returns all 3 variants
+                const variants = data.variants as Record<string, {
+                  response: string;
+                  brandMentions: Record<string, any>;
+                  contentQuality: ContentQuality;
+                }>;
+                
+                // Add each variant as a separate response for aggregation
+                for (const [variantKey, variantData] of Object.entries(variants)) {
+                  responsesByModel[model.id].push({
+                    rawResponse: variantData.response,
+                    brandMentions: variantData.brandMentions,
+                    contentQuality: variantData.contentQuality,
+                    promptVariant: variantKey as PromptVariant,
+                  } as ExperimentResponse);
+                }
+              } else if (data) {
+                // Fallback for non-conversation mode
+                responsesByModel[model.id].push(data as ExperimentResponse);
               }
-              
-              completedCalls++;
-              setProgress(Math.round((completedCalls / totalCalls) * 100));
-              
-              await new Promise(resolve => setTimeout(resolve, 500));
+            } catch (err) {
+              console.error('API call failed:', err);
             }
+            
+            completedCalls++;
+            setProgress(Math.round((completedCalls / totalCalls) * 100));
+            
+            // Longer delay between conversation calls to avoid rate limits
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
         }
       }
