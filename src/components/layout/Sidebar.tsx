@@ -7,6 +7,7 @@ import {
   GitCompare,
   History
 } from "lucide-react";
+import ceekLogo from "@/assets/ceek-logo.png";
 
 interface SidebarProps {
   activeTab: string;
@@ -25,16 +26,12 @@ const tabs = [
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   return (
     <aside className="w-64 min-h-screen bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col">
-      {/* CEEK-style Logo */}
+      {/* CEEK Logo */}
       <div className="p-6 border-b border-sidebar-border">
-        <div className="space-y-1">
-          <h1 className="text-2xl tracking-tight text-sidebar-foreground font-bold">
-            CEEKER
-          </h1>
-          <p className="text-xs text-sidebar-foreground/50 tracking-widest uppercase">
-            AI Brand Visibility
-          </p>
-        </div>
+        <img src={ceekLogo} alt="CEEK" className="h-6 mb-3 brightness-0 invert opacity-90" />
+        <p className="text-xs text-sidebar-foreground/50 tracking-widest uppercase">
+          AI Brand Visibility
+        </p>
       </div>
 
       {/* Navigation */}
