@@ -12,7 +12,6 @@ import {
 
 interface NLPScoreBreakdownProps {
   quality: ContentQuality;
-  variant?: 'minimal' | 'frontloaded' | 'stepwise';
 }
 
 const METRIC_INFO = {
@@ -84,7 +83,7 @@ function getStatusIcon(status: 'optimal' | 'high' | 'low') {
   }
 }
 
-export function NLPScoreBreakdown({ quality, variant }: NLPScoreBreakdownProps) {
+export function NLPScoreBreakdown({ quality }: NLPScoreBreakdownProps) {
   const metrics = [
     { key: 'sentiment', value: quality.sentiment },
     { key: 'readability', value: quality.readability },
@@ -94,37 +93,21 @@ export function NLPScoreBreakdown({ quality, variant }: NLPScoreBreakdownProps) 
     { key: 'explanatoryDirectiveness', value: quality.explanatoryDirectiveness },
   ] as const;
 
-  const getCFFBadgeColor = (v: string) => {
-    switch (v) {
-      case 'minimal': return 'bg-blue-500/20 text-blue-700 dark:text-blue-300';
-      case 'frontloaded': return 'bg-purple-500/20 text-purple-700 dark:text-purple-300';
-      case 'stepwise': return 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300';
-      default: return 'bg-muted';
-    }
-  };
-
   return (
     <Card className="border-border/50">
       <CardContent className="pt-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">NLP Analysis</span>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="w-3.5 h-3.5 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p className="text-xs">Scores based on Ghosh (2024) NLP framework. Green = optimal range, amber = high, red = low.</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          {variant && (
-            <Badge variant="outline" className={getCFFBadgeColor(variant)}>
-              {variant}
-            </Badge>
-          )}
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium">NLP Analysis</span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <Info className="w-3.5 h-3.5 text-muted-foreground" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                <p className="text-xs">Scores based on Ghosh (2024) NLP framework. Green = optimal range, amber = high, red = low.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         <div className="flex items-center justify-between p-2 rounded-lg bg-primary/10">
