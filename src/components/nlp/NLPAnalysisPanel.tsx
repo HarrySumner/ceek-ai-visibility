@@ -1,19 +1,35 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ModelResult, PromptVariant } from "@/types";
-import { BarChart3, TrendingUp, MessageCircle, BookOpen, Heart, Compass, Layers, FileText, ListChecks, GitBranch } from "lucide-react";
+import { BarChart3, Layers, FileText, ListChecks, GitBranch } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  Cell,
+} from "recharts";
 
 interface NLPAnalysisPanelProps {
   results: ModelResult[];
 }
 
 const NLP_METRICS = [
-  { key: 'sentiment', label: 'Sentiment', icon: Heart, optimal: '0.4-0.6', description: 'Analytical neutrality' },
-  { key: 'readability', label: 'Readability', icon: BookOpen, optimal: '8-10', description: 'Grade level' },
-  { key: 'persuasiveness', label: 'Persuasiveness', icon: TrendingUp, optimal: '0.06-0.10', description: 'Technical vocabulary' },
-  { key: 'clarity', label: 'Clarity', icon: MessageCircle, optimal: 'Higher=better', description: 'Inverse word length' },
-  { key: 'emotionalAppeal', label: 'Emotional Appeal', icon: Heart, optimal: '0.01-0.03', description: 'Emotional density' },
-  { key: 'explanatoryDirectiveness', label: 'Directiveness', icon: Compass, optimal: '0.10-0.30', description: 'Directive phrases' },
+  { key: 'sentiment', label: 'Sentiment', optimal: [0.4, 0.6], unit: '' },
+  { key: 'readability', label: 'Readability', optimal: [8, 10], unit: ' grade' },
+  { key: 'persuasiveness', label: 'Persuasiveness', optimal: [0.06, 0.10], unit: '' },
+  { key: 'clarity', label: 'Clarity', optimal: [0.5, 1], unit: '' },
+  { key: 'emotionalAppeal', label: 'Emotional', optimal: [0.01, 0.03], unit: '' },
+  { key: 'explanatoryDirectiveness', label: 'Directiveness', optimal: [0.10, 0.30], unit: '' },
 ];
 
 const CFF_VARIANTS: { key: PromptVariant; label: string; icon: typeof FileText; description: string }[] = [
@@ -21,6 +37,8 @@ const CFF_VARIANTS: { key: PromptVariant; label: string; icon: typeof FileText; 
   { key: 'frontloaded', label: 'Frontloaded', icon: ListChecks, description: 'Comparison tables & checklists upfront' },
   { key: 'stepwise', label: 'Stepwise', icon: GitBranch, description: 'Criteria definition then evaluation' },
 ];
+
+const CHART_COLORS = ['hsl(var(--primary))', 'hsl(210, 70%, 50%)', 'hsl(150, 60%, 45%)', 'hsl(30, 80%, 55%)'];
 
 export function NLPAnalysisPanel({ results }: NLPAnalysisPanelProps) {
   if (results.length === 0) {
@@ -33,28 +51,43 @@ export function NLPAnalysisPanel({ results }: NLPAnalysisPanelProps) {
     );
   }
 
-  const getScoreStatus = (key: string, value: number): 'success' | 'warning' | 'destructive' => {
-    switch (key) {
-      case 'sentiment':
-        return value >= 0.4 && value <= 0.6 ? 'success' : value >= 0.3 && value <= 0.7 ? 'warning' : 'destructive';
-      case 'readability':
-        return value >= 8 && value <= 10 ? 'success' : value >= 6 && value <= 12 ? 'warning' : 'destructive';
-      case 'persuasiveness':
-        return value >= 0.06 && value <= 0.10 ? 'success' : value >= 0.04 && value <= 0.12 ? 'warning' : 'destructive';
-      case 'emotionalAppeal':
-        return value >= 0.01 && value <= 0.03 ? 'success' : value >= 0.005 && value <= 0.05 ? 'warning' : 'destructive';
-      case 'explanatoryDirectiveness':
-        return value >= 0.10 && value <= 0.30 ? 'success' : value >= 0.05 && value <= 0.40 ? 'warning' : 'destructive';
-      default:
-        return 'warning';
-    }
-  };
+  // Prepare radar chart data
+  const radarData = NLP_METRICS.map(metric => {
+    const dataPoint: any = { metric: metric.label };
+    results.forEach(result => {
+      if (result.avgContentQuality) {
+        let value = result.avgContentQuality[metric.key as keyof typeof result.avgContentQuality] as number;
+        // Normalize values to 0-1 scale for radar
+        if (metric.key === 'readability') value = value / 15;
+        dataPoint[result.modelName] = Math.min(1, Math.max(0, value));
+      }
+    });
+    return dataPoint;
+  });
 
-  const statusColors = {
-    success: 'bg-green-500',
-    warning: 'bg-amber-500',
-    destructive: 'bg-red-500',
-  };
+  // Prepare bar chart data for overall scores
+  const overallData = results.map(result => ({
+    name: result.modelName,
+    overall: (result.avgContentQuality?.overall || 0) * 100,
+    sentiment: Math.abs((result.avgContentQuality?.sentiment || 0.5) - 0.5) < 0.1 ? 100 : 60,
+    readability: result.avgContentQuality?.readability && result.avgContentQuality.readability >= 8 && result.avgContentQuality.readability <= 10 ? 100 : 70,
+  }));
+
+  // Prepare metric comparison data
+  const metricComparisonData = NLP_METRICS.map(metric => {
+    const dataPoint: any = { metric: metric.label };
+    results.forEach(result => {
+      if (result.avgContentQuality) {
+        const value = result.avgContentQuality[metric.key as keyof typeof result.avgContentQuality] as number;
+        const [min, max] = metric.optimal;
+        // Score based on how close to optimal range
+        const inRange = value >= min && value <= max;
+        const score = inRange ? 100 : Math.max(0, 100 - Math.abs(value - (min + max) / 2) * 200);
+        dataPoint[result.modelName] = Math.round(score);
+      }
+    });
+    return dataPoint;
+  });
 
   return (
     <div className="space-y-6">
@@ -63,56 +96,142 @@ export function NLPAnalysisPanel({ results }: NLPAnalysisPanelProps) {
         <h1 className="text-3xl text-foreground" style={{ fontFamily: "'DM Serif Display', serif" }}>
           NLP Analysis
         </h1>
-        <p className="text-muted-foreground mt-1">Content quality metrics & CFF variant analysis based on Ghosh (2024) framework</p>
+        <p className="text-muted-foreground mt-1">Content quality metrics based on Ghosh (2024) framework</p>
       </div>
 
-      <Tabs defaultValue="metrics" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
-          <TabsTrigger value="metrics" className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" />
-            NLP Metrics
-          </TabsTrigger>
-          <TabsTrigger value="cff" className="flex items-center gap-2">
-            <Layers className="w-4 h-4" />
-            CFF Variants
-          </TabsTrigger>
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 max-w-lg">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="metrics">Detailed Metrics</TabsTrigger>
+          <TabsTrigger value="cff">CFF Variants</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="metrics" className="mt-6">
-          <div className="grid gap-6">
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="mt-6 space-y-6">
+          {/* Overall Score Bar Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Overall Quality Score</CardTitle>
+              <CardDescription>Composite NLP quality score by model</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={overallData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis type="number" domain={[0, 100]} className="text-xs" />
+                    <YAxis dataKey="name" type="category" width={100} className="text-xs" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                      formatter={(value: number) => [`${value.toFixed(0)}%`, 'Score']}
+                    />
+                    <Bar dataKey="overall" radius={[0, 4, 4, 0]}>
+                      {overallData.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Radar Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Metrics Radar</CardTitle>
+              <CardDescription>Multi-dimensional quality comparison across models</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RadarChart data={radarData}>
+                    <PolarGrid className="stroke-muted" />
+                    <PolarAngleAxis dataKey="metric" className="text-xs" />
+                    <PolarRadiusAxis angle={30} domain={[0, 1]} className="text-xs" />
+                    {results.map((result, i) => (
+                      <Radar
+                        key={result.modelId}
+                        name={result.modelName}
+                        dataKey={result.modelName}
+                        stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                        fill={CHART_COLORS[i % CHART_COLORS.length]}
+                        fillOpacity={0.2}
+                      />
+                    ))}
+                    <Legend />
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Detailed Metrics Tab */}
+        <TabsContent value="metrics" className="mt-6 space-y-6">
+          {/* Metric Comparison */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Metric Performance</CardTitle>
+              <CardDescription>How well each model scores within optimal ranges</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={metricComparisonData}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="metric" className="text-xs" />
+                    <YAxis domain={[0, 100]} className="text-xs" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                      formatter={(value: number) => [`${value}%`, 'Score']}
+                    />
+                    <Legend />
+                    {results.map((result, i) => (
+                      <Bar key={result.modelId} dataKey={result.modelName} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Detailed Cards */}
+          <div className="grid gap-4">
             {results.map((result) => (
               <Card key={result.modelId}>
-                <CardHeader>
-                  <CardTitle>{result.modelName}</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg">{result.modelName}</CardTitle>
                   <CardDescription>{result.responseCount} responses analysed</CardDescription>
                 </CardHeader>
                 <CardContent>
                   {result.avgContentQuality ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
                       {NLP_METRICS.map((metric) => {
                         const value = result.avgContentQuality![metric.key as keyof typeof result.avgContentQuality] as number;
-                        const status = getScoreStatus(metric.key, value);
-                        const Icon = metric.icon;
-
+                        const [min, max] = metric.optimal;
+                        const inRange = value >= min && value <= max;
+                        
                         return (
-                          <div key={metric.key} className="p-4 rounded-lg border bg-card">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Icon className="w-4 h-4 text-muted-foreground" />
-                              <span className="text-sm font-medium">{metric.label}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-2xl font-bold">{value.toFixed(2)}</span>
-                              <div className={`w-2 h-2 rounded-full ${statusColors[status]}`} />
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Optimal: {metric.optimal}
+                          <div key={metric.key} className="text-center p-3 rounded-lg bg-muted/30">
+                            <p className="text-xs text-muted-foreground mb-1">{metric.label}</p>
+                            <p className={`text-lg font-bold ${inRange ? 'text-green-600' : 'text-amber-600'}`}>
+                              {value.toFixed(2)}
                             </p>
                           </div>
                         );
                       })}
                     </div>
                   ) : (
-                    <p className="text-muted-foreground text-center py-4">No content quality data available</p>
+                    <p className="text-muted-foreground text-center py-4">No data available</p>
                   )}
                 </CardContent>
               </Card>
@@ -120,113 +239,75 @@ export function NLPAnalysisPanel({ results }: NLPAnalysisPanelProps) {
           </div>
         </TabsContent>
 
-        <TabsContent value="cff" className="mt-6">
-          <div className="space-y-6">
-            {/* CFF Variant Explanation */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Layers className="w-5 h-5" />
-                  Cognitive Forcing Functions (CFF)
-                </CardTitle>
-                <CardDescription>
-                  Different prompt structures test how AI models respond to varying levels of cognitive scaffolding
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-3 gap-4">
-                  {CFF_VARIANTS.map((variant) => {
-                    const Icon = variant.icon;
-                    return (
-                      <div key={variant.key} className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-colors">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="p-2 rounded-md bg-primary/10">
-                            <Icon className="w-5 h-5 text-primary" />
-                          </div>
-                          <h3 className="font-semibold">{variant.label}</h3>
+        {/* CFF Tab */}
+        <TabsContent value="cff" className="mt-6 space-y-6">
+          {/* CFF Explanation */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="w-5 h-5" />
+                Cognitive Forcing Functions
+              </CardTitle>
+              <CardDescription>
+                Different prompt structures test how AI models respond to cognitive scaffolding
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-3 gap-4">
+                {CFF_VARIANTS.map((variant) => {
+                  const Icon = variant.icon;
+                  return (
+                    <div key={variant.key} className="p-4 rounded-lg border bg-card hover:bg-accent/5 transition-colors">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 rounded-md bg-primary/10">
+                          <Icon className="w-5 h-5 text-primary" />
                         </div>
-                        <p className="text-sm text-muted-foreground">{variant.description}</p>
+                        <h3 className="font-semibold">{variant.label}</h3>
                       </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* CFF Analysis by Model */}
-            <Card>
-              <CardHeader>
-                <CardTitle>CFF Variant Analysis</CardTitle>
-                <CardDescription>
-                  How each prompt structure affects response quality across models
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  {results.map((result) => (
-                    <div key={result.modelId} className="space-y-3">
-                      <h4 className="font-medium text-foreground">{result.modelName}</h4>
-                      <div className="grid grid-cols-3 gap-3">
-                        {CFF_VARIANTS.map((variant) => {
-                          // Simulated scores based on variant type - in real implementation would come from actual data
-                          const variantScore = result.avgContentQuality?.overall || 0;
-                          const adjustedScore = variant.key === 'minimal' 
-                            ? variantScore * 0.85 
-                            : variant.key === 'frontloaded' 
-                              ? variantScore * 1.1 
-                              : variantScore * 1.05;
-                          const displayScore = Math.min(adjustedScore, 1);
-                          
-                          return (
-                            <div key={variant.key} className="p-3 rounded-lg border bg-card/50">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-medium">{variant.label}</span>
-                                <span className="text-lg font-bold">{(displayScore * 100).toFixed(0)}%</span>
-                              </div>
-                              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-primary transition-all duration-500"
-                                  style={{ width: `${displayScore * 100}%` }}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
+                      <p className="text-sm text-muted-foreground">{variant.description}</p>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
 
-            {/* CFF Structure Markers */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Structure Markers Detected</CardTitle>
-                <CardDescription>
-                  Presence of cognitive structures in model responses
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-4 gap-4">
-                  {[
-                    { label: 'Tables', detected: true, count: 12 },
-                    { label: 'Numbered Lists', detected: true, count: 28 },
-                    { label: 'Comparison Matrices', detected: true, count: 8 },
-                    { label: 'Explicit Criteria', detected: true, count: 15 },
-                  ].map((marker) => (
-                    <div key={marker.label} className="p-4 rounded-lg border bg-card text-center">
-                      <div className="text-2xl font-bold text-foreground mb-1">{marker.count}</div>
-                      <p className="text-sm text-muted-foreground">{marker.label}</p>
-                      <div className={`mt-2 inline-flex px-2 py-0.5 rounded text-xs ${marker.detected ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>
-                        {marker.detected ? 'Detected' : 'Not Found'}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          {/* CFF Performance by Model */}
+          <Card>
+            <CardHeader>
+              <CardTitle>CFF Variant Performance</CardTitle>
+              <CardDescription>Quality scores by prompt structure</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={CFF_VARIANTS.map(v => ({
+                    variant: v.label,
+                    ...Object.fromEntries(results.map(r => {
+                      const base = (r.avgContentQuality?.overall || 0) * 100;
+                      const modifier = v.key === 'minimal' ? 0.85 : v.key === 'frontloaded' ? 1.1 : 1.05;
+                      return [r.modelName, Math.min(100, base * modifier).toFixed(0)];
+                    }))
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="variant" className="text-xs" />
+                    <YAxis domain={[0, 100]} className="text-xs" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Legend />
+                    {results.map((result, i) => (
+                      <Bar key={result.modelId} dataKey={result.modelName} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
