@@ -1,13 +1,12 @@
 import { cn } from "@/lib/utils";
 import { 
-  LayoutDashboard, 
-  Building2, 
-  Search, 
-  Cpu, 
-  Play, 
+  MessageSquare, 
+  FileText, 
   Download,
-  Eye,
-  History
+  BarChart3,
+  GitCompare,
+  History,
+  Eye
 } from "lucide-react";
 
 interface SidebarProps {
@@ -16,13 +15,12 @@ interface SidebarProps {
 }
 
 const tabs = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'brands', label: 'Brands', icon: Building2 },
-  { id: 'keywords', label: 'Keywords', icon: Search },
-  { id: 'models', label: 'Models', icon: Cpu },
-  { id: 'run', label: 'Run', icon: Play },
-  { id: 'history', label: 'History', icon: History },
+  { id: 'ask', label: 'Ask a LLM', icon: MessageSquare },
+  { id: 'responses', label: 'Check Responses', icon: FileText },
   { id: 'export', label: 'Export', icon: Download },
+  { id: 'nlp', label: 'Analyse NLP', icon: BarChart3 },
+  { id: 'compare', label: 'Compare Models', icon: GitCompare },
+  { id: 'history', label: 'Usage/Diagnostics', icon: History },
 ];
 
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
