@@ -26,6 +26,13 @@ interface ExperimentRequest {
   brands: Brand[];
   modelId: string;
   promptVariant: 'minimal' | 'frontloaded' | 'stepwise';
+  // New: support multi-turn conversation mode
+  conversationMode?: boolean;
+}
+
+interface Message {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
 }
 
 // Map model IDs to Lovable AI gateway models
@@ -47,6 +54,12 @@ const AMBIGUOUS_TERMS: Record<string, string[]> = {
   'visa': ['card', 'payment', 'credit', 'debit', 'mastercard'],
   'oracle': ['database', 'software', 'cloud', 'java'],
   'uber': ['ride', 'driver', 'lyft', 'taxi', 'eats'],
+};
+
+// CFF follow-up prompts for multi-turn conversation
+const CFF_FOLLOWUPS = {
+  frontloaded: "Can you structure that as a comparison table or checklist? Please compare the key options with their pros and cons.",
+  stepwise: "Before making a final recommendation, can you first define the key criteria that matter for this decision, then systematically evaluate each option against those criteria?"
 };
 
 function buildPrompt(keyword: string, brands: Brand[], variant: 'minimal' | 'frontloaded' | 'stepwise'): string {
@@ -104,10 +117,8 @@ function detectBrandMentions(response: string, brands: Brand[]): Record<string, 
     for (const name of namesToCheck) {
       const nameLower = name.toLowerCase();
       
-      // Skip very short names (likely abbreviations that need context)
       if (nameLower.length < 2) continue;
       
-      // Create word boundary regex for exact matching
       const wordBoundaryRegex = new RegExp(`\\b${escapeRegex(nameLower)}\\b`, 'gi');
       const matches = response.match(wordBoundaryRegex);
       
@@ -115,7 +126,6 @@ function detectBrandMentions(response: string, brands: Brand[]): Record<string, 
         totalMatches += matches.length;
         result.detected = true;
         
-        // Check disambiguation for ambiguous terms
         const disambiguationResult = checkDisambiguation(nameLower, response);
         confidenceFactors.push(disambiguationResult.confidence);
         
@@ -123,13 +133,11 @@ function detectBrandMentions(response: string, brands: Brand[]): Record<string, 
           result.disambiguationNotes.push(...disambiguationResult.notes);
         }
         
-        // Find position in ranked lists
         const rankPosition = findRankPosition(nameLower, response);
         if (rankPosition !== null && (result.position === null || rankPosition < result.position)) {
           result.position = rankPosition;
         }
         
-        // Extract context snippets
         const snippets = extractContextSnippets(name, response, sentences);
         for (const snippet of snippets) {
           if (result.contextSnippets.length < 3 && !result.contextSnippets.includes(snippet)) {
@@ -137,28 +145,24 @@ function detectBrandMentions(response: string, brands: Brand[]): Record<string, 
           }
         }
         
-        // Boost confidence for capitalized matches (more likely to be brand names)
         const capitalizedRegex = new RegExp(`\\b${escapeRegex(name)}\\b`, 'g');
         const capitalizedMatches = response.match(capitalizedRegex);
         if (capitalizedMatches && capitalizedMatches.length > 0) {
-          confidenceFactors.push(0.9); // High confidence for exact case match
+          confidenceFactors.push(0.9);
         }
       }
     }
     
     result.numMentions = totalMatches;
     
-    // Calculate overall confidence
     if (confidenceFactors.length > 0) {
       result.confidence = confidenceFactors.reduce((a, b) => a + b, 0) / confidenceFactors.length;
     }
     
-    // Boost confidence if mentioned multiple times
     if (totalMatches >= 3) {
       result.confidence = Math.min(1, result.confidence + 0.1);
     }
     
-    // Boost confidence if found in a ranked position
     if (result.position !== null) {
       result.confidence = Math.min(1, result.confidence + 0.15);
     }
@@ -169,20 +173,15 @@ function detectBrandMentions(response: string, brands: Brand[]): Record<string, 
   return mentions;
 }
 
-/**
- * Check if an ambiguous term is being used as a brand name or generic word
- */
 function checkDisambiguation(term: string, response: string): { confidence: number; notes: string[] } {
   const responseLower = response.toLowerCase();
   const contextTerms = AMBIGUOUS_TERMS[term];
   const notes: string[] = [];
   
-  // If not in our ambiguous list, assume high confidence
   if (!contextTerms) {
     return { confidence: 0.85, notes: [] };
   }
   
-  // Check for brand-related context clues
   let brandContextScore = 0;
   let genericContextScore = 0;
   
@@ -192,7 +191,6 @@ function checkDisambiguation(term: string, response: string): { confidence: numb
     }
   }
   
-  // Check for generic usage patterns
   if (term === 'apple' && responseLower.includes('fruit')) {
     genericContextScore += 2;
     notes.push('Possible generic fruit reference detected');
@@ -206,14 +204,13 @@ function checkDisambiguation(term: string, response: string): { confidence: numb
     notes.push('Possible command shell reference detected');
   }
   
-  // Calculate confidence based on context balance
   const totalContext = brandContextScore + genericContextScore;
   if (totalContext === 0) {
     return { confidence: 0.6, notes: ['No strong context clues found'] };
   }
   
   const brandRatio = brandContextScore / (brandContextScore + genericContextScore);
-  const confidence = 0.5 + (brandRatio * 0.4); // Range: 0.5 to 0.9
+  const confidence = 0.5 + (brandRatio * 0.4);
   
   if (brandContextScore > genericContextScore) {
     notes.push(`Brand context detected (${brandContextScore} clues)`);
@@ -224,13 +221,9 @@ function checkDisambiguation(term: string, response: string): { confidence: numb
   return { confidence, notes };
 }
 
-/**
- * Find the position of a brand in a ranked list (1., 2., etc.)
- */
 function findRankPosition(brandName: string, response: string): number | null {
   const brandLower = brandName.toLowerCase();
   
-  // Pattern 1: Numbered lists (1., 2., etc.)
   const numberedPattern = new RegExp(
     `(^|\\n)\\s*(\\d+)\\.?\\s*[^\\n]*?\\b${escapeRegex(brandLower)}\\b`,
     'gim'
@@ -240,7 +233,6 @@ function findRankPosition(brandName: string, response: string): number | null {
     return parseInt(numberedMatch[2]);
   }
   
-  // Pattern 2: Bullet points with ordinal context
   const bulletPattern = new RegExp(
     `[-•*]\\s*(first|second|third|fourth|fifth|1st|2nd|3rd|4th|5th)[^\\n]*?\\b${escapeRegex(brandLower)}\\b`,
     'gim'
@@ -258,21 +250,17 @@ function findRankPosition(brandName: string, response: string): number | null {
     return ordinalMap[ordinal] || null;
   }
   
-  // Pattern 3: "Top X" or "Best X" followed by brand
   const topPattern = new RegExp(
     `(top|best|number)\\s*(\\d+|one|two|three)[^\\n]*?\\b${escapeRegex(brandLower)}\\b`,
     'gim'
   );
   if (topPattern.test(response)) {
-    return 1; // Assume top position if mentioned in "top/best" context
+    return 1;
   }
   
   return null;
 }
 
-/**
- * Extract context snippets around brand mentions
- */
 function extractContextSnippets(brandName: string, response: string, sentences: string[]): string[] {
   const snippets: string[] = [];
   const brandLower = brandName.toLowerCase();
@@ -289,9 +277,6 @@ function extractContextSnippets(brandName: string, response: string, sentences: 
   return snippets;
 }
 
-/**
- * Escape special regex characters
- */
 function escapeRegex(string: string): string {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -303,44 +288,37 @@ function analyzeContentQuality(response: string) {
   const wordCount = words.length;
   const sentenceCount = sentences.length || 1;
   
-  // 1. Sentiment approximation (neutral = 0.5)
   const positiveWords = ['best', 'excellent', 'great', 'recommended', 'top', 'quality', 'reliable', 'trusted', 'leading', 'popular', 'effective'];
   const negativeWords = ['worst', 'avoid', 'poor', 'bad', 'unreliable', 'expensive', 'limited', 'issues', 'problems', 'concerns'];
   const posCount = words.filter(w => positiveWords.includes(w.toLowerCase())).length;
   const negCount = words.filter(w => negativeWords.includes(w.toLowerCase())).length;
   const sentiment = wordCount > 0 ? 0.5 + (posCount - negCount) / (wordCount * 2) : 0.5;
   
-  // 2. Readability (Flesch-Kincaid approximation)
   const avgWordsPerSentence = wordCount / sentenceCount;
   const avgSyllables = words.reduce((sum, word) => sum + countSyllables(word), 0) / (wordCount || 1);
   const readability = Math.max(0, Math.min(20, 0.39 * avgWordsPerSentence + 11.8 * avgSyllables - 15.59));
   
-  // 3. Persuasiveness (technical vocabulary density)
   const technicalWords = ['analysis', 'compare', 'evaluate', 'criteria', 'metrics', 'performance', 'features', 'specifications', 'benchmark', 'assessment'];
   const technicalCount = words.filter(w => technicalWords.includes(w.toLowerCase())).length;
   const persuasiveness = wordCount > 0 ? technicalCount / wordCount : 0;
   
-  // 4. Clarity (inverse of average word length, normalized)
   const avgWordLength = words.reduce((sum, w) => sum + w.length, 0) / (wordCount || 1);
   const clarity = Math.max(0, Math.min(1, 1 - (avgWordLength - 4) / 10));
   
-  // 5. Emotional appeal (emotional word density)
   const emotionalWords = ['amazing', 'love', 'hate', 'terrible', 'wonderful', 'fantastic', 'awful', 'incredible', 'perfect', 'disaster'];
   const emotionalCount = words.filter(w => emotionalWords.includes(w.toLowerCase())).length;
   const emotionalAppeal = wordCount > 0 ? emotionalCount / wordCount : 0;
   
-  // 6. Explanatory directiveness (directive phrase density)
   const directivePhrases = ['should', 'recommend', 'suggest', 'consider', 'choose', 'opt for', 'go with', 'select', 'prefer', 'ideal for'];
   const directiveCount = directivePhrases.filter(phrase => response.toLowerCase().includes(phrase)).length;
   const explanatoryDirectiveness = wordCount > 0 ? (directiveCount * 5) / wordCount : 0;
   
-  // 7. Structure detection
   const hasTable = /\|.*\|.*\|/m.test(response) || /\t.*\t/m.test(response);
   const hasNumberedList = /^\s*\d+\./m.test(response);
   const hasBulletList = /^\s*[-•*]/m.test(response);
   const hasComparison = /compar|versus|vs\.?|better than|worse than/i.test(response);
+  const hasCriteria = /criteria|factor|consider|evaluat|assess/i.test(response);
   
-  // Overall composite score
   const sentimentScore = 1 - Math.abs(sentiment - 0.5) * 2;
   const readabilityScore = readability >= 8 && readability <= 12 ? 1 : Math.max(0, 1 - Math.abs(readability - 10) / 6);
   const persuasivenessScore = persuasiveness >= 0.04 && persuasiveness <= 0.12 ? 1 : Math.max(0, 1 - Math.abs(persuasiveness - 0.08) * 10);
@@ -348,7 +326,6 @@ function analyzeContentQuality(response: string) {
   const emotionalScore = emotionalAppeal <= 0.03 ? 1 : Math.max(0, 1 - (emotionalAppeal - 0.03) * 20);
   const directivenessScore = explanatoryDirectiveness >= 0.08 && explanatoryDirectiveness <= 0.35 ? 1 : Math.max(0, 1 - Math.abs(explanatoryDirectiveness - 0.20) * 4);
   
-  // Bonus for structured responses
   const structureBonus = (hasTable ? 0.05 : 0) + (hasNumberedList ? 0.03 : 0) + (hasBulletList ? 0.02 : 0) + (hasComparison ? 0.03 : 0);
   
   const overall = Math.min(1, (sentimentScore + readabilityScore + persuasivenessScore + clarityScore + emotionalScore + directivenessScore) / 6 + structureBonus);
@@ -366,6 +343,7 @@ function analyzeContentQuality(response: string) {
       hasNumberedList,
       hasBulletList,
       hasComparison,
+      hasCriteria,
     },
   };
 }
@@ -377,16 +355,109 @@ function countSyllables(word: string): number {
   return vowels ? vowels.length : 1;
 }
 
+/**
+ * Run a multi-turn conversation to test all CFF variants in sequence
+ */
+async function runConversationMode(
+  keyword: string,
+  brands: Brand[],
+  gatewayModel: string,
+  apiKey: string
+): Promise<{
+  variants: Record<string, {
+    response: string;
+    brandMentions: Record<string, BrandMentionResult>;
+    contentQuality: ReturnType<typeof analyzeContentQuality>;
+  }>;
+  conversationHistory: Message[];
+}> {
+  const brandNames = brands.map(b => b.name).join(', ');
+  const systemPrompt = `You are a helpful assistant that provides balanced, informative comparisons and recommendations about luxury brands and products. Be objective and consider multiple perspectives. When comparing options, use clear structure like numbered lists or tables when appropriate. Consider these brands when relevant: ${brandNames}`;
+  
+  const conversationHistory: Message[] = [
+    { role: 'system', content: systemPrompt }
+  ];
+  
+  const variants: Record<string, any> = {};
+  
+  // Turn 1: Minimal - Just ask the question naturally
+  console.log('Turn 1: Minimal prompt');
+  conversationHistory.push({ role: 'user', content: keyword });
+  
+  const minimalResponse = await callAI(conversationHistory, gatewayModel, apiKey);
+  conversationHistory.push({ role: 'assistant', content: minimalResponse });
+  
+  variants.minimal = {
+    response: minimalResponse,
+    brandMentions: detectBrandMentions(minimalResponse, brands),
+    contentQuality: analyzeContentQuality(minimalResponse),
+  };
+  console.log(`Minimal response: ${minimalResponse.length} chars, ${Object.values(variants.minimal.brandMentions).filter((m: any) => m.detected).length} brands detected`);
+  
+  // Turn 2: Frontloaded - Ask for structured comparison
+  console.log('Turn 2: Frontloaded follow-up');
+  conversationHistory.push({ role: 'user', content: CFF_FOLLOWUPS.frontloaded });
+  
+  const frontloadedResponse = await callAI(conversationHistory, gatewayModel, apiKey);
+  conversationHistory.push({ role: 'assistant', content: frontloadedResponse });
+  
+  variants.frontloaded = {
+    response: frontloadedResponse,
+    brandMentions: detectBrandMentions(frontloadedResponse, brands),
+    contentQuality: analyzeContentQuality(frontloadedResponse),
+  };
+  console.log(`Frontloaded response: ${frontloadedResponse.length} chars, structure markers: ${JSON.stringify(variants.frontloaded.contentQuality.structureMarkers)}`);
+  
+  // Turn 3: Stepwise - Ask for criteria-based evaluation
+  console.log('Turn 3: Stepwise follow-up');
+  conversationHistory.push({ role: 'user', content: CFF_FOLLOWUPS.stepwise });
+  
+  const stepwiseResponse = await callAI(conversationHistory, gatewayModel, apiKey);
+  conversationHistory.push({ role: 'assistant', content: stepwiseResponse });
+  
+  variants.stepwise = {
+    response: stepwiseResponse,
+    brandMentions: detectBrandMentions(stepwiseResponse, brands),
+    contentQuality: analyzeContentQuality(stepwiseResponse),
+  };
+  console.log(`Stepwise response: ${stepwiseResponse.length} chars, has criteria: ${variants.stepwise.contentQuality.structureMarkers.hasCriteria}`);
+  
+  return { variants, conversationHistory };
+}
+
+async function callAI(messages: Message[], model: string, apiKey: string): Promise<string> {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+    }),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("AI gateway error:", response.status, errorText);
+    throw new Error(`AI gateway error: ${response.status}`);
+  }
+  
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "";
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { keyword, brands, modelId, promptVariant } = await req.json() as ExperimentRequest;
+    const { keyword, brands, modelId, promptVariant, conversationMode } = await req.json() as ExperimentRequest;
     
-    console.log(`Running experiment: model=${modelId}, variant=${promptVariant}, keyword="${keyword.substring(0, 50)}..."`);
-    console.log(`Tracking ${brands.length} brands`);
+    console.log(`Running experiment: model=${modelId}, variant=${promptVariant}, conversationMode=${conversationMode}, keyword="${keyword.substring(0, 50)}..."`);
+    console.log(`Tracking ${brands.length} brands: ${brands.map(b => b.name).join(', ')}`);
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -394,9 +465,33 @@ serve(async (req) => {
     }
 
     const gatewayModel = MODEL_MAP[modelId] || 'google/gemini-2.5-flash';
-    const prompt = buildPrompt(keyword, brands, promptVariant);
-    
     console.log(`Using gateway model: ${gatewayModel}`);
+    
+    // NEW: Multi-turn conversation mode for CFF variant detection
+    if (conversationMode) {
+      console.log('Running in conversation mode - testing all CFF variants in sequence');
+      
+      const { variants, conversationHistory } = await runConversationMode(
+        keyword,
+        brands,
+        gatewayModel,
+        LOVABLE_API_KEY
+      );
+      
+      return new Response(JSON.stringify({
+        conversationMode: true,
+        variants,
+        conversationHistory: conversationHistory.filter(m => m.role !== 'system'),
+        modelId,
+        keyword,
+        timestamp: new Date().toISOString(),
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
+    // Original single-prompt mode
+    const prompt = buildPrompt(keyword, brands, promptVariant);
     
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -441,13 +536,9 @@ serve(async (req) => {
     
     console.log(`Response received: ${rawResponse.length} characters`);
     
-    // Enhanced brand mention detection
     const brandMentions = detectBrandMentions(rawResponse, brands);
-    
-    // Content quality analysis
     const contentQuality = analyzeContentQuality(rawResponse);
     
-    // Log detection summary
     for (const [brandId, mention] of Object.entries(brandMentions)) {
       if (mention.detected) {
         console.log(`Brand ${brandId}: detected=${mention.detected}, position=${mention.position}, confidence=${mention.confidence.toFixed(2)}, mentions=${mention.numMentions}`);

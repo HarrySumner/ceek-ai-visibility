@@ -106,9 +106,10 @@ export function AskPanel({
     ));
   };
 
-  // Run experiment
+  // Run experiment - conversation mode tests all 3 CFF variants per call
   const canRun = brands.length > 0 && keywords.length > 0 && enabledModels.length > 0;
-  const totalCalls = keywords.length * enabledModels.length * selectedVariants.length * runsPerCombination;
+  const totalConversations = keywords.length * enabledModels.length * runsPerCombination;
+  const totalResponses = totalConversations * 3; // 3 CFF variants per conversation
 
   return (
     <div className="space-y-6">
@@ -223,7 +224,10 @@ export function AskPanel({
             <div className="space-y-1">
               <p className="font-medium">Ready to run</p>
               <p className="text-sm text-muted-foreground">
-                {brands.length} brands × {keywords.length} keywords × {enabledModels.length} models × 3 CFF variants = <strong>{totalCalls}</strong> API calls
+                {keywords.length} keywords × {enabledModels.length} models = <strong>{totalConversations}</strong> conversations
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Each conversation tests 3 CFF variants in sequence → <strong>{totalResponses}</strong> total responses
               </p>
             </div>
             <div className="flex items-center gap-4">
