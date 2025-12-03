@@ -6,10 +6,12 @@ import { ExportPanel } from "@/components/export/ExportPanel";
 import { NLPAnalysisPanel } from "@/components/nlp/NLPAnalysisPanel";
 import { CompareModelsPanel } from "@/components/compare/CompareModelsPanel";
 import { ExperimentHistory } from "@/components/history/ExperimentHistory";
+import { HeroLanding } from "@/components/landing/HeroLanding";
 import { useExperiment } from "@/hooks/useExperiment";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("ask");
+  const [showHero, setShowHero] = useState(true);
   const {
     brands,
     setBrands,
@@ -18,6 +20,7 @@ const Index = () => {
     models,
     setModels,
     results,
+    hasRun,
     isRunning,
     progress,
     currentStep,
@@ -28,7 +31,18 @@ const Index = () => {
     currentExperimentId,
   } = useExperiment();
 
+  // Show hero landing when no experiment has been run and user hasn't dismissed it
+  const shouldShowHero = showHero && !hasRun && results.length === 0 && activeTab === "ask";
+
+  const handleGetStarted = () => {
+    setShowHero(false);
+  };
+
   const renderContent = () => {
+    if (shouldShowHero) {
+      return <HeroLanding onGetStarted={handleGetStarted} />;
+    }
+
     switch (activeTab) {
       case "ask":
         return (
