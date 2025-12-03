@@ -61,7 +61,7 @@ const Index = () => {
         );
 
       case "responses":
-        return <ResponsesPanel results={results} />;
+        return <ResponsesPanel results={results} onNavigateToNLP={() => setActiveTab("nlp")} />;
 
       case "export":
         return <ExportPanel results={results} brands={brands} keywords={keywords} />;
