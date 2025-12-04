@@ -432,7 +432,7 @@ async function runConversationMode(
   return { variants, conversationHistory };
 }
 
-async function callAI(messages: Message[], modelConfig: ModelConfig): Promise<string> {
+async function callAI(messages: Message[], modelConfig: ModelConfig, retries = 3): Promise<string> {
   const openaiKey = Deno.env.get("OPENAI_API_KEY");
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
   const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
@@ -504,6 +504,15 @@ async function callAI(messages: Message[], modelConfig: ModelConfig): Promise<st
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`${provider} API error:`, response.status, errorText);
+    
+    // Retry on transient errors (502, 503, 429)
+    if ([502, 503, 429].includes(response.status) && retries > 0) {
+      const delay = (4 - retries) * 2000; // 2s, 4s, 6s backoff
+      console.log(`Retrying in ${delay}ms... (${retries} retries left)`);
+      await new Promise(r => setTimeout(r, delay));
+      return callAI(messages, modelConfig, retries - 1);
+    }
+    
     throw new Error(`${provider} API error: ${response.status}`);
   }
   
