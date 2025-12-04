@@ -41,16 +41,14 @@ interface ModelConfig {
   apiModel: string;
 }
 
+// All models use Lovable gateway (pre-configured, no API key credits needed)
 const MODEL_MAP: Record<string, ModelConfig> = {
-  'gpt-4o': { provider: 'openai', apiModel: 'gpt-4o' },
-  'gpt-4o-mini': { provider: 'openai', apiModel: 'gpt-4o-mini' },
-  'claude-sonnet': { provider: 'anthropic', apiModel: 'claude-sonnet-4-20250514' },
-  'claude-haiku': { provider: 'anthropic', apiModel: 'claude-3-5-haiku-20241022' },
-  'gemini-2.5-flash': { provider: 'google', apiModel: 'gemini-2.5-flash-preview-05-20' },
-  'gemini-2.5-pro': { provider: 'google', apiModel: 'gemini-2.5-pro-preview-05-06' },
-  // Fallback to Lovable gateway
-  'gpt-5': { provider: 'lovable', apiModel: 'openai/gpt-5' },
-  'gpt-5-mini': { provider: 'lovable', apiModel: 'openai/gpt-5-mini' },
+  'gpt-4o': { provider: 'lovable', apiModel: 'openai/gpt-5' },
+  'gpt-4o-mini': { provider: 'lovable', apiModel: 'openai/gpt-5-mini' },
+  'claude-sonnet': { provider: 'lovable', apiModel: 'google/gemini-2.5-pro' },
+  'claude-haiku': { provider: 'lovable', apiModel: 'google/gemini-2.5-flash' },
+  'gemini-2.5-flash': { provider: 'lovable', apiModel: 'google/gemini-2.5-flash' },
+  'gemini-2.5-pro': { provider: 'lovable', apiModel: 'google/gemini-2.5-pro' },
 };
 
 // Common words that might be brand names but are also generic terms
