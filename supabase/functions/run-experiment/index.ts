@@ -35,12 +35,22 @@ interface Message {
   content: string;
 }
 
-// Map model IDs to Lovable AI gateway models
-const MODEL_MAP: Record<string, string> = {
-  'gemini-2.5-flash': 'google/gemini-2.5-flash',
-  'gemini-2.5-pro': 'google/gemini-2.5-pro',
-  'gpt-5': 'openai/gpt-5',
-  'gpt-5-mini': 'openai/gpt-5-mini',
+// Model provider configuration
+interface ModelConfig {
+  provider: 'openai' | 'anthropic' | 'google' | 'lovable';
+  apiModel: string;
+}
+
+const MODEL_MAP: Record<string, ModelConfig> = {
+  'gpt-4o': { provider: 'openai', apiModel: 'gpt-4o' },
+  'gpt-4o-mini': { provider: 'openai', apiModel: 'gpt-4o-mini' },
+  'claude-sonnet': { provider: 'anthropic', apiModel: 'claude-sonnet-4-20250514' },
+  'claude-haiku': { provider: 'anthropic', apiModel: 'claude-3-5-haiku-20241022' },
+  'gemini-2.5-flash': { provider: 'google', apiModel: 'gemini-2.5-flash-preview-05-20' },
+  'gemini-2.5-pro': { provider: 'google', apiModel: 'gemini-2.5-pro-preview-05-06' },
+  // Fallback to Lovable gateway
+  'gpt-5': { provider: 'lovable', apiModel: 'openai/gpt-5' },
+  'gpt-5-mini': { provider: 'lovable', apiModel: 'openai/gpt-5-mini' },
 };
 
 // Common words that might be brand names but are also generic terms
@@ -361,8 +371,7 @@ function countSyllables(word: string): number {
 async function runConversationMode(
   keyword: string,
   brands: Brand[],
-  gatewayModel: string,
-  apiKey: string
+  modelConfig: ModelConfig
 ): Promise<{
   variants: Record<string, {
     response: string;
@@ -384,7 +393,7 @@ async function runConversationMode(
   console.log('Turn 1: Minimal prompt');
   conversationHistory.push({ role: 'user', content: keyword });
   
-  const minimalResponse = await callAI(conversationHistory, gatewayModel, apiKey);
+  const minimalResponse = await callAI(conversationHistory, modelConfig);
   conversationHistory.push({ role: 'assistant', content: minimalResponse });
   
   variants.minimal = {
@@ -398,7 +407,7 @@ async function runConversationMode(
   console.log('Turn 2: Frontloaded follow-up');
   conversationHistory.push({ role: 'user', content: CFF_FOLLOWUPS.frontloaded });
   
-  const frontloadedResponse = await callAI(conversationHistory, gatewayModel, apiKey);
+  const frontloadedResponse = await callAI(conversationHistory, modelConfig);
   conversationHistory.push({ role: 'assistant', content: frontloadedResponse });
   
   variants.frontloaded = {
@@ -412,7 +421,7 @@ async function runConversationMode(
   console.log('Turn 3: Stepwise follow-up');
   conversationHistory.push({ role: 'user', content: CFF_FOLLOWUPS.stepwise });
   
-  const stepwiseResponse = await callAI(conversationHistory, gatewayModel, apiKey);
+  const stepwiseResponse = await callAI(conversationHistory, modelConfig);
   conversationHistory.push({ role: 'assistant', content: stepwiseResponse });
   
   variants.stepwise = {
@@ -425,27 +434,92 @@ async function runConversationMode(
   return { variants, conversationHistory };
 }
 
-async function callAI(messages: Message[], model: string, apiKey: string): Promise<string> {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
+async function callAI(messages: Message[], modelConfig: ModelConfig): Promise<string> {
+  const openaiKey = Deno.env.get("OPENAI_API_KEY");
+  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+  const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  
+  let apiUrl: string;
+  let headers: Record<string, string>;
+  let body: string;
+  
+  const { provider, apiModel } = modelConfig;
+  
+  if (provider === 'openai' && openaiKey) {
+    apiUrl = "https://api.openai.com/v1/chat/completions";
+    headers = {
+      Authorization: `Bearer ${openaiKey}`,
       "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-    }),
-  });
+    };
+    body = JSON.stringify({ model: apiModel, messages });
+    
+  } else if (provider === 'anthropic' && anthropicKey) {
+    apiUrl = "https://api.anthropic.com/v1/messages";
+    headers = {
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    };
+    // Convert messages format for Anthropic
+    const systemMsg = messages.find(m => m.role === 'system');
+    const otherMsgs = messages.filter(m => m.role !== 'system');
+    body = JSON.stringify({
+      model: apiModel,
+      max_tokens: 4096,
+      system: systemMsg?.content || "",
+      messages: otherMsgs.map(m => ({ role: m.role, content: m.content })),
+    });
+    
+  } else if (provider === 'google' && googleKey) {
+    apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${apiModel}:generateContent?key=${googleKey}`;
+    headers = { "Content-Type": "application/json" };
+    // Convert messages format for Google
+    const systemMsg = messages.find(m => m.role === 'system');
+    const otherMsgs = messages.filter(m => m.role !== 'system');
+    body = JSON.stringify({
+      systemInstruction: systemMsg ? { parts: [{ text: systemMsg.content }] } : undefined,
+      contents: otherMsgs.map(m => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      })),
+    });
+    
+  } else if (lovableKey) {
+    // Fallback to Lovable gateway
+    apiUrl = "https://ai.gateway.lovable.dev/v1/chat/completions";
+    headers = {
+      Authorization: `Bearer ${lovableKey}`,
+      "Content-Type": "application/json",
+    };
+    const gatewayModel = provider === 'lovable' ? apiModel : `google/gemini-2.5-flash`;
+    body = JSON.stringify({ model: gatewayModel, messages });
+    
+  } else {
+    throw new Error(`No API key configured for provider: ${provider}`);
+  }
+  
+  console.log(`Calling ${provider} API with model ${apiModel}`);
+  
+  const response = await fetch(apiUrl, { method: "POST", headers, body });
   
   if (!response.ok) {
     const errorText = await response.text();
-    console.error("AI gateway error:", response.status, errorText);
-    throw new Error(`AI gateway error: ${response.status}`);
+    console.error(`${provider} API error:`, response.status, errorText);
+    throw new Error(`${provider} API error: ${response.status}`);
   }
   
   const data = await response.json();
-  return data.choices?.[0]?.message?.content || "";
+  
+  // Extract content based on provider response format
+  if (provider === 'anthropic') {
+    return data.content?.[0]?.text || "";
+  } else if (provider === 'google') {
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  } else {
+    // OpenAI and Lovable gateway format
+    return data.choices?.[0]?.message?.content || "";
+  }
 }
 
 serve(async (req) => {
@@ -459,13 +533,9 @@ serve(async (req) => {
     console.log(`Running experiment: model=${modelId}, variant=${promptVariant}, conversationMode=${conversationMode}, keyword="${keyword.substring(0, 50)}..."`);
     console.log(`Tracking ${brands.length} brands: ${brands.map(b => b.name).join(', ')}`);
     
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    const gatewayModel = MODEL_MAP[modelId] || 'google/gemini-2.5-flash';
-    console.log(`Using gateway model: ${gatewayModel}`);
+    // Get model config, default to Lovable gateway with gemini-2.5-flash
+    const modelConfig: ModelConfig = MODEL_MAP[modelId] || { provider: 'lovable', apiModel: 'google/gemini-2.5-flash' };
+    console.log(`Using provider: ${modelConfig.provider}, model: ${modelConfig.apiModel}`);
     
     // NEW: Multi-turn conversation mode for CFF variant detection
     if (conversationMode) {
@@ -474,8 +544,7 @@ serve(async (req) => {
       const { variants, conversationHistory } = await runConversationMode(
         keyword,
         brands,
-        gatewayModel,
-        LOVABLE_API_KEY
+        modelConfig
       );
       
       return new Response(JSON.stringify({
@@ -490,49 +559,17 @@ serve(async (req) => {
       });
     }
     
-    // Original single-prompt mode
+    // Original single-prompt mode - use callAI
     const prompt = buildPrompt(keyword, brands, promptVariant);
-    
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
+    const messages: Message[] = [
+      { 
+        role: "system", 
+        content: "You are a helpful assistant that provides balanced, informative comparisons and recommendations. Be objective and consider multiple perspectives. When comparing options, use clear structure like numbered lists or tables when appropriate." 
       },
-      body: JSON.stringify({
-        model: gatewayModel,
-        messages: [
-          { 
-            role: "system", 
-            content: "You are a helpful assistant that provides balanced, informative comparisons and recommendations. Be objective and consider multiple perspectives. When comparing options, use clear structure like numbered lists or tables when appropriate." 
-          },
-          { role: "user", content: prompt }
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "Usage limit reached. Please add credits to continue." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      
-      throw new Error(`AI gateway error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const rawResponse = data.choices?.[0]?.message?.content || "";
+      { role: "user", content: prompt }
+    ];
+    
+    const rawResponse = await callAI(messages, modelConfig);
     
     console.log(`Response received: ${rawResponse.length} characters`);
     

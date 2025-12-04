@@ -5,10 +5,13 @@ import { toast } from "sonner";
 import { RawResponse } from "@/components/responses/RawResponseViewer";
 
 const DEFAULT_MODELS: ModelConfig[] = [
-  { id: 'gemini-2.5-flash', provider: 'lovable', name: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', enabled: true },
-  { id: 'gemini-2.5-pro', provider: 'lovable', name: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', enabled: false },
-  { id: 'gpt-5', provider: 'lovable', name: 'gpt-5', displayName: 'GPT-5', enabled: true },
-  { id: 'gpt-5-mini', provider: 'lovable', name: 'gpt-5-mini', displayName: 'GPT-5 Mini', enabled: false },
+  // Direct API models (faster with your own keys)
+  { id: 'gpt-4o', provider: 'openai', name: 'gpt-4o', displayName: 'GPT-4o', enabled: true },
+  { id: 'gpt-4o-mini', provider: 'openai', name: 'gpt-4o-mini', displayName: 'GPT-4o Mini', enabled: false },
+  { id: 'claude-sonnet', provider: 'anthropic', name: 'claude-sonnet-4', displayName: 'Claude Sonnet 4', enabled: true },
+  { id: 'claude-haiku', provider: 'anthropic', name: 'claude-3.5-haiku', displayName: 'Claude 3.5 Haiku', enabled: false },
+  { id: 'gemini-2.5-flash', provider: 'google', name: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', enabled: true },
+  { id: 'gemini-2.5-pro', provider: 'google', name: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', enabled: false },
 ];
 
 interface ExperimentResponse {
