@@ -260,33 +260,58 @@ export function useExperiment() {
         }
       }
 
-      // Process in parallel batches of 4 to avoid rate limits
-      const BATCH_SIZE = 4;
+      // Process in smaller batches of 2 for more frequent progress updates
+      const BATCH_SIZE = 2;
+      const TIMEOUT_MS = 120000; // 2 minute timeout per request
+      
       for (let i = 0; i < allCalls.length; i += BATCH_SIZE) {
         const batch = allCalls.slice(i, i + BATCH_SIZE);
-        setCurrentStep(`Running ${batch.length} conversations in parallel (${i + 1}-${Math.min(i + BATCH_SIZE, allCalls.length)} of ${allCalls.length})`);
+        setCurrentStep(`Running ${batch.length} conversations (${i + 1}-${Math.min(i + BATCH_SIZE, allCalls.length)} of ${allCalls.length})`);
         
         const batchPromises = batch.map(async ({ keyword, model, run }) => {
           try {
-            const { data, error } = await supabase.functions.invoke('run-experiment', {
-              body: {
-                keyword: keyword.query,
-                brands,
-                modelId: model.id,
-                promptVariant: 'minimal',
-                conversationMode: true,
+            // Create abort controller for timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+            
+            const response = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/run-experiment`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                },
+                body: JSON.stringify({
+                  keyword: keyword.query,
+                  brands,
+                  modelId: model.id,
+                  promptVariant: 'minimal',
+                  conversationMode: true,
+                }),
+                signal: controller.signal,
               }
-            });
-
-            if (error) {
-              console.error('Experiment error:', error);
-              toast.error(`Error with ${model.displayName}: ${error.message}`);
+            );
+            
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error(`API error for ${model.displayName}:`, response.status, errorText);
+              toast.error(`Error with ${model.displayName}: ${response.status}`);
               return null;
             }
             
+            const data = await response.json();
             return { data, model, keyword, run };
-          } catch (err) {
-            console.error('API call failed:', err);
+          } catch (err: any) {
+            if (err.name === 'AbortError') {
+              console.error(`Timeout for ${model.displayName} on "${keyword.query}"`);
+              toast.error(`${model.displayName} timed out - skipping`);
+            } else {
+              console.error('API call failed:', err);
+              toast.error(`Error with ${model.displayName}: ${err.message}`);
+            }
             return null;
           }
         });
@@ -341,7 +366,7 @@ export function useExperiment() {
         
         // Small delay between batches to avoid rate limits
         if (i + BATCH_SIZE < allCalls.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 300));
         }
       }
 
