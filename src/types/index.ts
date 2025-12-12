@@ -14,12 +14,36 @@ export interface Keyword {
 
 export type PromptVariant = 'minimal' | 'frontloaded' | 'stepwise';
 
+export type IndustryVertical = 
+  | 'travel-tourism'
+  | 'hospitality-events'
+  | 'lifestyle-leisure'
+  | 'food-beverage'
+  | 'construction-realestate'
+  | 'health-wellness';
+
+export const INDUSTRY_VERTICALS: { id: IndustryVertical; label: string; icon: string }[] = [
+  { id: 'travel-tourism', label: 'Travel & Tourism', icon: '✈️' },
+  { id: 'hospitality-events', label: 'Hospitality & Events', icon: '🏨' },
+  { id: 'lifestyle-leisure', label: 'Lifestyle & Leisure', icon: '🎯' },
+  { id: 'food-beverage', label: 'Food & Beverage', icon: '🍽️' },
+  { id: 'construction-realestate', label: 'Construction & Real Estate', icon: '🏗️' },
+  { id: 'health-wellness', label: 'Health & Wellness', icon: '💪' },
+];
+
+export interface ExperimentContext {
+  industry: IndustryVertical | null;
+  positioning: string;
+  competitors: string[];
+}
+
 export interface ModelConfig {
   id: string;
   provider: 'lovable' | 'openai' | 'google' | 'anthropic' | 'deepseek';
   name: string;
   displayName: string;
   enabled: boolean;
+  color?: string;
 }
 
 export interface BrandMention {
@@ -83,18 +107,30 @@ export interface ModelResult {
   avgContentQuality?: ContentQuality;
 }
 
+export interface Recommendation {
+  id: string;
+  type: 'opportunity' | 'warning' | 'strength';
+  title: string;
+  description: string;
+  metric: string;
+  impact: 'high' | 'medium' | 'low';
+  models: string[];
+}
+
 export interface ExperimentConfig {
   brands: Brand[];
   keywords: Keyword[];
   models: ModelConfig[];
   promptVariants: PromptVariant[];
   runsPerCombination: number;
+  context?: ExperimentContext;
 }
 
 export interface ExperimentResults {
   id: string;
   config: ExperimentConfig;
   results: ModelResult[];
+  recommendations: Recommendation[];
   summary: string;
   createdAt: Date;
 }

@@ -1,18 +1,23 @@
 import { useState, useEffect } from "react";
-import { Brand, Keyword, ModelConfig, ModelResult, PromptVariant, ContentQuality, BrandScore } from "@/types";
+import { Brand, Keyword, ModelConfig, ModelResult, PromptVariant, ContentQuality, BrandScore, ExperimentContext } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { RawResponse } from "@/components/responses/RawResponseViewer";
 
 const DEFAULT_MODELS: ModelConfig[] = [
-  // Direct API models (faster with your own keys)
-  { id: 'gpt-4o', provider: 'openai', name: 'gpt-4o', displayName: 'GPT-4o', enabled: true },
-  { id: 'gpt-4o-mini', provider: 'openai', name: 'gpt-4o-mini', displayName: 'GPT-4o Mini', enabled: false },
-  { id: 'claude-sonnet', provider: 'anthropic', name: 'claude-sonnet-4', displayName: 'Claude Sonnet 4', enabled: true },
-  { id: 'claude-haiku', provider: 'anthropic', name: 'claude-3.5-haiku', displayName: 'Claude 3.5 Haiku', enabled: false },
-  { id: 'gemini-2.5-flash', provider: 'google', name: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', enabled: true },
-  { id: 'gemini-2.5-pro', provider: 'google', name: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', enabled: false },
+  { id: 'gpt-4o', provider: 'openai', name: 'gpt-4o', displayName: 'GPT-4o', enabled: true, color: '#10b981' },
+  { id: 'gpt-4o-mini', provider: 'openai', name: 'gpt-4o-mini', displayName: 'GPT-4o Mini', enabled: false, color: '#34d399' },
+  { id: 'claude-sonnet', provider: 'anthropic', name: 'claude-sonnet-4', displayName: 'Claude Sonnet 4', enabled: true, color: '#f97316' },
+  { id: 'claude-haiku', provider: 'anthropic', name: 'claude-3.5-haiku', displayName: 'Claude 3.5 Haiku', enabled: false, color: '#fb923c' },
+  { id: 'gemini-2.5-flash', provider: 'google', name: 'gemini-2.5-flash', displayName: 'Gemini 2.5 Flash', enabled: true, color: '#3b82f6' },
+  { id: 'gemini-2.5-pro', provider: 'google', name: 'gemini-2.5-pro', displayName: 'Gemini 2.5 Pro', enabled: false, color: '#2563eb' },
 ];
+
+const DEFAULT_CONTEXT: ExperimentContext = {
+  industry: null,
+  positioning: '',
+  competitors: [],
+};
 
 interface ExperimentResponse {
   rawResponse: string;
@@ -52,24 +57,11 @@ export interface SavedExperiment {
   results?: ModelResult[];
 }
 
-// Sample data for luxury fashion brands
-const SAMPLE_BRANDS: Brand[] = [
-  { id: 'hermes', name: 'Hermès', aliases: ['Hermes', 'Hermès Paris'], type: 'client' },
-  { id: 'louis-vuitton', name: 'Louis Vuitton', aliases: ['LV', 'Vuitton', 'LVMH'], type: 'competitor' },
-  { id: 'gucci', name: 'Gucci', aliases: ['Gucci by Kering', 'House of Gucci'], type: 'competitor' },
-  { id: 'chanel', name: 'Chanel', aliases: ['CHANEL', 'House of Chanel'], type: 'competitor' },
-];
-
-const SAMPLE_KEYWORDS: Keyword[] = [
-  { id: 'kw1', query: 'What are the best luxury handbag brands to invest in?', category: 'luxury-fashion', intent: 'commercial' },
-  { id: 'kw2', query: 'Compare heritage luxury fashion houses for quality craftsmanship', category: 'luxury-fashion', intent: 'commercial' },
-  { id: 'kw3', query: 'Which luxury brand has the best resale value?', category: 'luxury-fashion', intent: 'informational' },
-];
-
 export function useExperiment() {
-  const [brands, setBrands] = useState<Brand[]>(SAMPLE_BRANDS);
-  const [keywords, setKeywords] = useState<Keyword[]>(SAMPLE_KEYWORDS);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [keywords, setKeywords] = useState<Keyword[]>([]);
   const [models, setModels] = useState<ModelConfig[]>(DEFAULT_MODELS);
+  const [context, setContext] = useState<ExperimentContext>(DEFAULT_CONTEXT);
   const [results, setResults] = useState<ModelResult[]>([]);
   const [rawResponses, setRawResponses] = useState<RawResponse[]>([]);
   const [hasRun, setHasRun] = useState(false);
@@ -450,6 +442,8 @@ export function useExperiment() {
     setKeywords,
     models,
     setModels,
+    context,
+    setContext,
     results,
     rawResponses,
     hasRun,
