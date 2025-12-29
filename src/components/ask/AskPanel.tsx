@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Play, Loader2, Plus, X, Sparkles, Building2, Search, Cpu } from "lucide-react";
-import { Brand, Keyword, ModelConfig, PromptVariant } from "@/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Play, Loader2, Plus, X, Sparkles, Building2, Search, Cpu, FolderOpen } from "lucide-react";
+import { Brand, Keyword, ModelConfig, PromptVariant, KeywordProject, KeywordData } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getProjects, getKeywords } from "@/lib/keywordApi";
 
 interface AskPanelProps {
   brands: Brand[];
@@ -21,6 +23,8 @@ interface AskPanelProps {
   progress: number;
   currentStep: string;
   onRunExperiment: (variants: PromptVariant[], runsPerCombination: number) => void;
+  selectedProjectId?: string;
+  onProjectChange?: (projectId: string) => void;
 }
 
 export function AskPanel({
@@ -34,16 +38,80 @@ export function AskPanel({
   progress,
   currentStep,
   onRunExperiment,
+  selectedProjectId,
+  onProjectChange,
 }: AskPanelProps) {
   const [newBrandName, setNewBrandName] = useState("");
   const [seedKeyword, setSeedKeyword] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [runsPerCombination, setRunsPerCombination] = useState(1);
+  const [projects, setProjects] = useState<KeywordProject[]>([]);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [loadingKeywords, setLoadingKeywords] = useState(false);
   
   // Use all CFF variants by default (analysis happens in NLP panel)
   const selectedVariants: PromptVariant[] = ['minimal', 'frontloaded', 'stepwise'];
 
   const enabledModels = models.filter(m => m.enabled);
+
+  // Load projects on mount
+  useEffect(() => {
+    async function loadProjects() {
+      setLoadingProjects(true);
+      try {
+        const data = await getProjects();
+        setProjects(data);
+      } catch (error) {
+        console.error('Failed to load projects:', error);
+      } finally {
+        setLoadingProjects(false);
+      }
+    }
+    loadProjects();
+  }, []);
+
+  // Load keywords when project changes
+  const handleProjectChange = async (projectId: string) => {
+    onProjectChange?.(projectId);
+    
+    if (!projectId) return;
+    
+    setLoadingKeywords(true);
+    try {
+      const projectKeywords = await getKeywords(projectId);
+      
+      // Convert to experiment keywords
+      const newKeywords: Keyword[] = projectKeywords.slice(0, 20).map((kw) => ({
+        id: `kw-${kw.id}`,
+        query: kw.keyword,
+        intent: 'commercial' as const,
+      }));
+      
+      setKeywords(newKeywords);
+      
+      // Extract unique brands from keywords (simple heuristic)
+      const project = projects.find(p => p.id === projectId);
+      if (project) {
+        // Use project name as the main brand if no brands exist
+        if (brands.length === 0) {
+          const mainBrand: Brand = {
+            id: crypto.randomUUID(),
+            name: project.name,
+            aliases: [],
+            type: 'client',
+          };
+          setBrands([mainBrand]);
+        }
+      }
+      
+      toast.success(`Loaded ${newKeywords.length} keywords from project`);
+    } catch (error) {
+      console.error('Failed to load project keywords:', error);
+      toast.error('Failed to load project keywords');
+    } finally {
+      setLoadingKeywords(false);
+    }
+  };
 
   // Brand management
   const addBrand = (type: 'client' | 'competitor') => {
@@ -124,9 +192,43 @@ export function AskPanel({
       <div className="py-2">
         <p className="text-xs text-muted-foreground tracking-widest uppercase mb-2">Experiment</p>
         <h1 className="text-3xl text-foreground" style={{ fontFamily: "'DM Serif Display', serif" }}>
-          Ask a LLM
+          Ask AI
         </h1>
       </div>
+
+      {/* Project Selector */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <FolderOpen className="w-5 h-5" />
+            Select Project
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Select 
+            value={selectedProjectId || ""} 
+            onValueChange={handleProjectChange}
+            disabled={loadingProjects || loadingKeywords}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={loadingProjects ? "Loading projects..." : "Choose a keyword project..."} />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map(p => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name} ({p.keywordCount} keywords)
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {loadingKeywords && (
+            <p className="text-xs text-muted-foreground mt-2 flex items-center gap-2">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Loading keywords...
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Brands */}
@@ -169,12 +271,15 @@ export function AskPanel({
             <CardTitle className="flex items-center gap-2 text-lg">
               <Search className="w-5 h-5" />
               Keywords
+              {keywords.length > 0 && (
+                <Badge variant="outline" className="ml-auto">{keywords.length}</Badge>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
               <Input
-                placeholder="Seed keyword..."
+                placeholder="Add keyword..."
                 value={seedKeyword}
                 onChange={(e) => setSeedKeyword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && generateKeywords()}
@@ -191,14 +296,14 @@ export function AskPanel({
                 </Badge>
               ))}
               {keywords.length === 0 && (
-                <p className="text-sm text-muted-foreground">No keywords generated</p>
+                <p className="text-sm text-muted-foreground">Select a project to load keywords</p>
               )}
             </div>
           </CardContent>
         </Card>
 
         {/* Models */}
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Cpu className="w-5 h-5" />
@@ -206,7 +311,7 @@ export function AskPanel({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               {models.map((model) => (
                 <label
                   key={model.id}
@@ -222,7 +327,6 @@ export function AskPanel({
             </div>
           </CardContent>
         </Card>
-
       </div>
 
       {/* Run Section */}

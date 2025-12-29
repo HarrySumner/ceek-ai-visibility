@@ -6,14 +6,13 @@ import { ExportPanelEnhanced } from "@/components/export/ExportPanelEnhanced";
 import { NLPAnalysisPanel } from "@/components/nlp/NLPAnalysisPanel";
 import { CompareModelsPanel } from "@/components/compare/CompareModelsPanel";
 import { ExperimentHistory } from "@/components/history/ExperimentHistory";
-import { HeroLanding } from "@/components/landing/HeroLanding";
 import { KeywordsPanel } from "@/components/keywords/KeywordsPanel";
 import { KeywordInsightsPanel } from "@/components/keywords/KeywordInsightsPanel";
 import { useExperiment } from "@/hooks/useExperiment";
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState("ask");
-  const [showHero, setShowHero] = useState(true);
+  const [activeTab, setActiveTab] = useState("keywords");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const {
     brands,
     setBrands,
@@ -34,11 +33,9 @@ const Index = () => {
     currentExperimentId,
   } = useExperiment();
 
-  // Show hero landing when no experiment has been run and user hasn't dismissed it
-  const shouldShowHero = showHero && !hasRun && results.length === 0 && activeTab === "ask";
-
-  const handleGetStarted = () => {
-    setShowHero(false);
+  // Handle project selection from Keywords panel
+  const handleProjectSelect = (projectId: string) => {
+    setSelectedProjectId(projectId);
   };
 
   // Handle keyword test from Keyword Tracking
@@ -55,7 +52,6 @@ const Index = () => {
     }
     // Navigate to Ask tab
     setActiveTab("ask");
-    setShowHero(false);
   };
 
   // Handle bulk keyword test from Keyword Tracking
@@ -73,15 +69,21 @@ const Index = () => {
     }
     // Navigate to Ask tab
     setActiveTab("ask");
-    setShowHero(false);
   };
 
   const renderContent = () => {
-    if (shouldShowHero) {
-      return <HeroLanding onGetStarted={handleGetStarted} />;
-    }
-
     switch (activeTab) {
+      case "keywords":
+        return (
+          <KeywordsPanel 
+            brands={brands} 
+            onTestKeyword={handleTestKeyword} 
+            onTestMultipleKeywords={handleTestMultipleKeywords}
+            selectedProjectId={selectedProjectId}
+            onProjectSelect={handleProjectSelect}
+          />
+        );
+
       case "ask":
         return (
           <AskPanel
@@ -95,6 +97,8 @@ const Index = () => {
             progress={progress}
             currentStep={currentStep}
             onRunExperiment={runExperiment}
+            selectedProjectId={selectedProjectId}
+            onProjectChange={handleProjectSelect}
           />
         );
 
@@ -107,9 +111,6 @@ const Index = () => {
             onNavigateToNLP={() => setActiveTab("nlp")} 
           />
         );
-
-      case "keywords":
-        return <KeywordsPanel brands={brands} onTestKeyword={handleTestKeyword} onTestMultipleKeywords={handleTestMultipleKeywords} />;
 
       case "insights":
         return <KeywordInsightsPanel brands={brands} results={results} />;

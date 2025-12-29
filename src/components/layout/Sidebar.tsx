@@ -17,14 +17,14 @@ interface SidebarProps {
 }
 
 const tabs = [
-  { id: 'ask', label: 'Ask a LLM', icon: MessageSquare },
-  { id: 'responses', label: 'Check Responses', icon: FileText },
-  { id: 'keywords', label: 'Keyword Tracking', icon: Search },
+  { id: 'keywords', label: 'Keyword Projects', icon: Search },
+  { id: 'ask', label: 'Ask AI', icon: MessageSquare },
+  { id: 'responses', label: 'Responses', icon: FileText },
   { id: 'insights', label: 'SEO Insights', icon: TrendingUp },
-  { id: 'export', label: 'Export', icon: Download },
-  { id: 'nlp', label: 'Analyse NLP', icon: BarChart3 },
+  { id: 'nlp', label: 'NLP Analysis', icon: BarChart3 },
   { id: 'compare', label: 'Compare Models', icon: GitCompare },
-  { id: 'history', label: 'Usage/Diagnostics', icon: History },
+  { id: 'export', label: 'Export', icon: Download },
+  { id: 'history', label: 'Diagnostics', icon: History },
 ];
 
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {

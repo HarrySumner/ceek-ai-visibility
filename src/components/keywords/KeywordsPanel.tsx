@@ -28,18 +28,39 @@ interface KeywordsPanelProps {
   brands?: Brand[];
   onTestKeyword?: (keyword: string) => void;
   onTestMultipleKeywords?: (keywords: string[]) => void;
+  selectedProjectId?: string;
+  onProjectSelect?: (projectId: string) => void;
 }
 
-export function KeywordsPanel({ brands = [], onTestKeyword, onTestMultipleKeywords }: KeywordsPanelProps) {
+export function KeywordsPanel({ 
+  brands = [], 
+  onTestKeyword, 
+  onTestMultipleKeywords,
+  selectedProjectId,
+  onProjectSelect 
+}: KeywordsPanelProps) {
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [projects, setProjects] = useState<KeywordProject[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string>("");
+  const [selectedProject, setSelectedProject] = useState<string>(selectedProjectId || "");
   const [keywords, setKeywords] = useState<KeywordData[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingKeywords, setLoadingKeywords] = useState(false);
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<SortField>('monthlyVolume');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Sync with parent's selected project
+  useEffect(() => {
+    if (selectedProjectId && selectedProjectId !== selectedProject) {
+      setSelectedProject(selectedProjectId);
+    }
+  }, [selectedProjectId]);
+
+  // Handle project change and notify parent
+  const handleProjectChange = (projectId: string) => {
+    setSelectedProject(projectId);
+    onProjectSelect?.(projectId);
+  };
 
   // Load projects on mount
   useEffect(() => {
@@ -48,10 +69,12 @@ export function KeywordsPanel({ brands = [], onTestKeyword, onTestMultipleKeywor
       try {
         const data = await getProjects();
         setProjects(data);
-        // Auto-select CEEK if available
-        const ceek = data.find(p => p.name.toLowerCase().includes('ceek'));
-        if (ceek) {
-          setSelectedProject(ceek.id);
+        // Auto-select CEEK if available and no project already selected
+        if (!selectedProject) {
+          const ceek = data.find(p => p.name.toLowerCase().includes('ceek'));
+          if (ceek) {
+            handleProjectChange(ceek.id);
+          }
         }
       } catch (error) {
         toast.error("Failed to load projects");
@@ -241,7 +264,7 @@ export function KeywordsPanel({ brands = [], onTestKeyword, onTestMultipleKeywor
 
         {/* Project Selector */}
         <div className="flex items-center gap-4">
-          <Select value={selectedProject} onValueChange={setSelectedProject} disabled={loading}>
+          <Select value={selectedProject} onValueChange={handleProjectChange} disabled={loading}>
             <SelectTrigger className="w-[280px]">
               <SelectValue placeholder="Select a project..." />
             </SelectTrigger>
