@@ -6,19 +6,31 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Download, RefreshCw, Hash, DollarSign, BarChart3, Sparkles, TrendingUp } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Search, Download, RefreshCw, Hash, DollarSign, BarChart3, Sparkles, TrendingUp, Building2, ChevronDown, Target, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { getProjects, getKeywords, formatVolume } from "@/lib/keywordApi";
-import { KeywordProject, KeywordData } from "@/types";
+import { KeywordProject, KeywordData, Brand } from "@/types";
 
 type SortField = 'keyword' | 'monthlyVolume' | 'rank' | 'cpc' | 'competition';
 type SortDirection = 'asc' | 'desc';
 
+interface ClientKeywordSummary {
+  brand: Brand;
+  matchedKeywords: KeywordData[];
+  totalVolume: number;
+  avgRank: number | null;
+  topKeywords: KeywordData[];
+  opportunityScore: 'high' | 'medium' | 'low';
+}
+
 interface KeywordsPanelProps {
+  brands?: Brand[];
   onTestKeyword?: (keyword: string) => void;
 }
 
-export function KeywordsPanel({ onTestKeyword }: KeywordsPanelProps) {
+export function KeywordsPanel({ brands = [], onTestKeyword }: KeywordsPanelProps) {
+  const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [projects, setProjects] = useState<KeywordProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [keywords, setKeywords] = useState<KeywordData[]>([]);
@@ -125,6 +137,60 @@ export function KeywordsPanel({ onTestKeyword }: KeywordsPanelProps) {
       ranking: rankedKeywords.length,
     };
   }, [keywords]);
+
+  // Client/Brand keyword summaries
+  const clientSummaries = useMemo((): ClientKeywordSummary[] => {
+    if (!brands.length || !keywords.length) return [];
+
+    return brands.map(brand => {
+      // Match keywords that contain brand name or aliases
+      const searchTerms = [brand.name, ...brand.aliases].map(t => t.toLowerCase());
+      const matchedKeywords = keywords.filter(kw => {
+        const kwLower = kw.keyword.toLowerCase();
+        return searchTerms.some(term => kwLower.includes(term));
+      });
+
+      const totalVolume = matchedKeywords.reduce((sum, k) => sum + k.monthlyVolume, 0);
+      const rankedKeywords = matchedKeywords.filter(k => k.rank !== null && k.rank > 0);
+      const avgRank = rankedKeywords.length > 0
+        ? rankedKeywords.reduce((sum, k) => sum + (k.rank || 0), 0) / rankedKeywords.length
+        : null;
+
+      // Top 5 by volume
+      const topKeywords = [...matchedKeywords]
+        .sort((a, b) => b.monthlyVolume - a.monthlyVolume)
+        .slice(0, 5);
+
+      // Calculate opportunity score
+      let opportunityScore: 'high' | 'medium' | 'low' = 'low';
+      if (matchedKeywords.length >= 10 && totalVolume >= 10000) {
+        opportunityScore = 'high';
+      } else if (matchedKeywords.length >= 5 || totalVolume >= 5000) {
+        opportunityScore = 'medium';
+      }
+
+      return {
+        brand,
+        matchedKeywords,
+        totalVolume,
+        avgRank,
+        topKeywords,
+        opportunityScore,
+      };
+    }).filter(s => s.matchedKeywords.length > 0);
+  }, [brands, keywords]);
+
+  const toggleClientExpanded = (brandId: string) => {
+    setExpandedClients(prev => {
+      const next = new Set(prev);
+      if (next.has(brandId)) {
+        next.delete(brandId);
+      } else {
+        next.add(brandId);
+      }
+      return next;
+    });
+  };
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -259,6 +325,118 @@ export function KeywordsPanel({ onTestKeyword }: KeywordsPanelProps) {
               </div>
             </div>
           </Card>
+        </div>
+      )}
+
+      {/* Client/Brand Keyword Summaries */}
+      {selectedProject && clientSummaries.length > 0 && (
+        <div className="glass-card p-6 animate-fade-in" style={{ animationDelay: '50ms' }}>
+          <div className="flex items-center gap-3 mb-4">
+            <Building2 className="w-5 h-5 text-primary" />
+            <h4 className="text-lg font-semibold">Client Keyword Analysis</h4>
+            <Badge variant="outline" className="ml-auto">
+              {clientSummaries.length} client{clientSummaries.length !== 1 ? 's' : ''} matched
+            </Badge>
+          </div>
+
+          <div className="space-y-3">
+            {clientSummaries.map((summary) => (
+              <Collapsible
+                key={summary.brand.id}
+                open={expandedClients.has(summary.brand.id)}
+                onOpenChange={() => toggleClientExpanded(summary.brand.id)}
+              >
+                <CollapsibleTrigger asChild>
+                  <Card className="p-4 cursor-pointer hover:bg-secondary/50 transition-colors border-border">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className={`w-3 h-3 rounded-full ${
+                          summary.brand.type === 'client' ? 'bg-primary' : 'bg-muted-foreground'
+                        }`} />
+                        <div>
+                          <p className="font-semibold">{summary.brand.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {summary.matchedKeywords.length} keywords • {formatVolume(summary.totalVolume)} monthly volume
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="text-sm">
+                            Avg Rank: <span className="font-semibold">
+                              {summary.avgRank ? summary.avgRank.toFixed(1) : 'N/A'}
+                            </span>
+                          </p>
+                          <Badge
+                            variant={
+                              summary.opportunityScore === 'high' ? 'default' :
+                              summary.opportunityScore === 'medium' ? 'secondary' : 'outline'
+                            }
+                            className={
+                              summary.opportunityScore === 'high' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                              summary.opportunityScore === 'medium' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : ''
+                            }
+                          >
+                            <Target className="w-3 h-3 mr-1" />
+                            {summary.opportunityScore} opportunity
+                          </Badge>
+                        </div>
+                        <ChevronDown className={`w-5 h-5 transition-transform ${
+                          expandedClients.has(summary.brand.id) ? 'rotate-180' : ''
+                        }`} />
+                      </div>
+                    </div>
+                  </Card>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <Card className="mt-2 p-4 bg-secondary/20 border-border">
+                    <p className="text-sm font-medium mb-3 flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-primary" />
+                      Top Keywords by Volume
+                    </p>
+                    <div className="space-y-2">
+                      {summary.topKeywords.map((kw, idx) => (
+                        <div key={kw.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground w-4">#{idx + 1}</span>
+                            <span className="font-medium">{kw.keyword}</span>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm">
+                            <span>{formatVolume(kw.monthlyVolume)}/mo</span>
+                            <span className={
+                              kw.rank !== null && kw.rank <= 10 ? 'text-green-500' :
+                              kw.rank !== null && kw.rank <= 30 ? 'text-yellow-500' : 'text-muted-foreground'
+                            }>
+                              {kw.rank !== null ? `#${kw.rank}` : 'N/A'}
+                            </span>
+                            {onTestKeyword && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onTestKeyword(kw.keyword);
+                                }}
+                                className="h-7 px-2 text-xs"
+                              >
+                                <Sparkles className="w-3 h-3 mr-1" />
+                                Test
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {summary.matchedKeywords.length > 5 && (
+                      <p className="text-xs text-muted-foreground mt-3">
+                        + {summary.matchedKeywords.length - 5} more keywords
+                      </p>
+                    )}
+                  </Card>
+                </CollapsibleContent>
+              </Collapsible>
+            ))}
+          </div>
         </div>
       )}
 

@@ -91,7 +91,7 @@ const Index = () => {
         );
 
       case "keywords":
-        return <KeywordsPanel onTestKeyword={handleTestKeyword} />;
+        return <KeywordsPanel brands={brands} onTestKeyword={handleTestKeyword} />;
 
       case "insights":
         return <KeywordInsightsPanel brands={brands} results={results} />;
