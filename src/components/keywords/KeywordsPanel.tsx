@@ -27,9 +27,10 @@ interface ClientKeywordSummary {
 interface KeywordsPanelProps {
   brands?: Brand[];
   onTestKeyword?: (keyword: string) => void;
+  onTestMultipleKeywords?: (keywords: string[]) => void;
 }
 
-export function KeywordsPanel({ brands = [], onTestKeyword }: KeywordsPanelProps) {
+export function KeywordsPanel({ brands = [], onTestKeyword, onTestMultipleKeywords }: KeywordsPanelProps) {
   const [expandedClients, setExpandedClients] = useState<Set<string>>(new Set());
   const [projects, setProjects] = useState<KeywordProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
@@ -390,10 +391,27 @@ export function KeywordsPanel({ brands = [], onTestKeyword }: KeywordsPanelProps
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <Card className="mt-2 p-4 bg-secondary/20 border-border">
-                    <p className="text-sm font-medium mb-3 flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-primary" />
-                      Top Keywords by Volume
-                    </p>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-primary" />
+                        Top Keywords by Volume
+                      </p>
+                      {onTestMultipleKeywords && summary.topKeywords.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onTestMultipleKeywords(summary.topKeywords.map(kw => kw.keyword));
+                            toast.success(`Added ${summary.topKeywords.length} keywords for ${summary.brand.name}`);
+                          }}
+                          className="h-7 px-3 text-xs"
+                        >
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          Test All ({summary.topKeywords.length})
+                        </Button>
+                      )}
+                    </div>
                     <div className="space-y-2">
                       {summary.topKeywords.map((kw, idx) => (
                         <div key={kw.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
