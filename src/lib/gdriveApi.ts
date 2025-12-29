@@ -13,16 +13,29 @@ export interface GoogleTokens {
   token_type: string;
 }
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
-export function isGoogleDriveConfigured(): boolean {
-  return Boolean(GOOGLE_CLIENT_ID);
+// Check if Google Drive is configured (fetches from edge function)
+export async function checkDriveConfigured(): Promise<{ configured: boolean; clientId: string }> {
+  try {
+    const { data, error } = await supabase.functions.invoke('gdrive-upload', {
+      body: { action: 'getClientId' }
+    });
+    
+    if (error) {
+      console.error('Failed to check Drive config:', error);
+      return { configured: false, clientId: '' };
+    }
+    
+    return { configured: data.configured, clientId: data.clientId };
+  } catch {
+    return { configured: false, clientId: '' };
+  }
 }
 
-export function getAuthUrl(redirectUri: string): string {
+export function getAuthUrl(clientId: string, redirectUri: string): string {
   const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
+    client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
     scope: SCOPES,
@@ -33,18 +46,11 @@ export function getAuthUrl(redirectUri: string): string {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
-export async function exchangeCodeForTokens(
-  code: string, 
-  clientId: string, 
-  clientSecret: string, 
-  redirectUri: string
-): Promise<GoogleTokens> {
+export async function exchangeCodeForTokens(code: string, redirectUri: string): Promise<GoogleTokens> {
   const { data, error } = await supabase.functions.invoke('gdrive-upload', {
     body: {
       action: 'exchangeCode',
       code,
-      clientId,
-      clientSecret,
       redirectUri,
     }
   });
