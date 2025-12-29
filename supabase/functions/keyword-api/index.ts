@@ -5,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const KEYWORD_API_BASE = 'https://api.keyword.com/v2';
+const KEYWORD_API_BASE = 'https://app.keyword.com/api/v2';
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -23,33 +23,26 @@ serve(async (req) => {
       );
     }
 
-    const { action, projectId, params } = await req.json();
-    console.log(`Keyword API request: action=${action}, projectId=${projectId}`);
+    const { action, groupName, params } = await req.json();
+    console.log(`Keyword API request: action=${action}, groupName=${groupName}`);
 
     let endpoint: string;
-    let method = 'GET';
+    const method = 'GET';
 
     switch (action) {
-      case 'getProjects':
-        endpoint = '/projects';
+      case 'getGroups':
+        // List all groups (projects) in the account
+        endpoint = '/groups';
         break;
       case 'getKeywords':
-        if (!projectId) {
+        if (!groupName) {
           return new Response(
-            JSON.stringify({ error: 'projectId required for getKeywords' }),
+            JSON.stringify({ error: 'groupName required for getKeywords' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        endpoint = `/projects/${projectId}/keywords`;
-        break;
-      case 'getKeywordData':
-        if (!projectId) {
-          return new Response(
-            JSON.stringify({ error: 'projectId required for getKeywordData' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        endpoint = `/projects/${projectId}/keywords/data`;
+        // Get keywords for a specific group
+        endpoint = `/groups/${encodeURIComponent(groupName)}/keywords`;
         break;
       default:
         return new Response(
@@ -80,7 +73,7 @@ serve(async (req) => {
     });
 
     const responseText = await response.text();
-    console.log(`Response status: ${response.status}`);
+    console.log(`Response status: ${response.status}, length: ${responseText.length}`);
 
     if (!response.ok) {
       console.error(`Keyword API error: ${responseText}`);
@@ -96,6 +89,8 @@ serve(async (req) => {
     } catch {
       data = { raw: responseText };
     }
+
+    console.log(`Returning data with ${Array.isArray(data?.data) ? data.data.length : 'unknown'} items`);
 
     return new Response(
       JSON.stringify(data),
