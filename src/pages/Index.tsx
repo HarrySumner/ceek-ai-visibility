@@ -2,11 +2,13 @@ import { useState } from "react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AskPanel } from "@/components/ask/AskPanel";
 import { ResponsesPanel } from "@/components/responses/ResponsesPanel";
-import { ExportPanel } from "@/components/export/ExportPanel";
+import { ExportPanelEnhanced } from "@/components/export/ExportPanelEnhanced";
 import { NLPAnalysisPanel } from "@/components/nlp/NLPAnalysisPanel";
 import { CompareModelsPanel } from "@/components/compare/CompareModelsPanel";
 import { ExperimentHistory } from "@/components/history/ExperimentHistory";
 import { HeroLanding } from "@/components/landing/HeroLanding";
+import { KeywordsPanel } from "@/components/keywords/KeywordsPanel";
+import { KeywordInsightsPanel } from "@/components/keywords/KeywordInsightsPanel";
 import { useExperiment } from "@/hooks/useExperiment";
 
 const Index = () => {
@@ -71,8 +73,14 @@ const Index = () => {
           />
         );
 
+      case "keywords":
+        return <KeywordsPanel />;
+
+      case "insights":
+        return <KeywordInsightsPanel brands={brands} results={results} />;
+
       case "export":
-        return <ExportPanel results={results} brands={brands} keywords={keywords} />;
+        return <ExportPanelEnhanced results={results} brands={brands} keywords={keywords} />;
 
       case "nlp":
         return <NLPAnalysisPanel results={results} />;
