@@ -58,6 +58,24 @@ const Index = () => {
     setShowHero(false);
   };
 
+  // Handle bulk keyword test from Keyword Tracking
+  const handleTestMultipleKeywords = (keywordStrings: string[]) => {
+    const newKeywords = keywordStrings
+      .filter(kw => !keywords.some(k => k.query.toLowerCase() === kw.toLowerCase()))
+      .map((kw, idx) => ({
+        id: `kw-${Date.now()}-${idx}`,
+        query: kw,
+        intent: 'commercial' as const,
+      }));
+    
+    if (newKeywords.length > 0) {
+      setKeywords([...keywords, ...newKeywords]);
+    }
+    // Navigate to Ask tab
+    setActiveTab("ask");
+    setShowHero(false);
+  };
+
   const renderContent = () => {
     if (shouldShowHero) {
       return <HeroLanding onGetStarted={handleGetStarted} />;
@@ -91,7 +109,7 @@ const Index = () => {
         );
 
       case "keywords":
-        return <KeywordsPanel brands={brands} onTestKeyword={handleTestKeyword} />;
+        return <KeywordsPanel brands={brands} onTestKeyword={handleTestKeyword} onTestMultipleKeywords={handleTestMultipleKeywords} />;
 
       case "insights":
         return <KeywordInsightsPanel brands={brands} results={results} />;
