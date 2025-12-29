@@ -41,6 +41,23 @@ const Index = () => {
     setShowHero(false);
   };
 
+  // Handle keyword test from Keyword Tracking
+  const handleTestKeyword = (keyword: string) => {
+    // Add keyword to experiment keywords if not already present
+    const exists = keywords.some(k => k.query.toLowerCase() === keyword.toLowerCase());
+    if (!exists) {
+      const newKeyword = {
+        id: `kw-${Date.now()}`,
+        query: keyword,
+        intent: 'commercial' as const,
+      };
+      setKeywords([...keywords, newKeyword]);
+    }
+    // Navigate to Ask tab
+    setActiveTab("ask");
+    setShowHero(false);
+  };
+
   const renderContent = () => {
     if (shouldShowHero) {
       return <HeroLanding onGetStarted={handleGetStarted} />;
@@ -74,7 +91,7 @@ const Index = () => {
         );
 
       case "keywords":
-        return <KeywordsPanel />;
+        return <KeywordsPanel onTestKeyword={handleTestKeyword} />;
 
       case "insights":
         return <KeywordInsightsPanel brands={brands} results={results} />;
