@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, TrendingUp, TrendingDown, Download, RefreshCw, Hash, DollarSign, BarChart3 } from "lucide-react";
+import { Search, Download, RefreshCw, Hash, DollarSign, BarChart3, Sparkles, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { getProjects, getKeywords, formatVolume } from "@/lib/keywordApi";
 import { KeywordProject, KeywordData } from "@/types";
@@ -14,7 +14,11 @@ import { KeywordProject, KeywordData } from "@/types";
 type SortField = 'keyword' | 'monthlyVolume' | 'rank' | 'cpc' | 'competition';
 type SortDirection = 'asc' | 'desc';
 
-export function KeywordsPanel() {
+interface KeywordsPanelProps {
+  onTestKeyword?: (keyword: string) => void;
+}
+
+export function KeywordsPanel({ onTestKeyword }: KeywordsPanelProps) {
   const [projects, setProjects] = useState<KeywordProject[]>([]);
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [keywords, setKeywords] = useState<KeywordData[]>([]);
@@ -319,6 +323,7 @@ export function KeywordsPanel() {
                     >
                       Competition {sortField === 'competition' && (sortDirection === 'asc' ? '↑' : '↓')}
                     </TableHead>
+                    {onTestKeyword && <TableHead className="w-24">Action</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -344,11 +349,24 @@ export function KeywordsPanel() {
                           {kw.competition}
                         </Badge>
                       </TableCell>
+                      {onTestKeyword && (
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onTestKeyword(kw.keyword)}
+                            className="h-8 px-2 text-xs"
+                          >
+                            <Sparkles className="w-3 h-3 mr-1" />
+                            Test AI
+                          </Button>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                   {filteredKeywords.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={onTestKeyword ? 7 : 6} className="text-center text-muted-foreground py-8">
                         {search ? 'No keywords match your search' : 'No keywords found'}
                       </TableCell>
                     </TableRow>
