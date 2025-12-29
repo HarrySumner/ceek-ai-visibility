@@ -141,3 +141,33 @@ export interface ScoringWeights {
   rankWeight: number; // default 0.3
   qualityWeight: number; // default 0.3
 }
+
+// Keyword.com integration types
+export interface KeywordProject {
+  id: string;
+  name: string;
+  keywordCount: number;
+  domain?: string;
+}
+
+export interface KeywordData {
+  id: string;
+  keyword: string;
+  monthlyVolume: number;
+  annualVolume: number;
+  rank: number | null;
+  cpc: number;
+  competition: 'low' | 'medium' | 'high';
+  trend: number; // percentage change
+}
+
+export interface SEOInsight {
+  brandId: string;
+  brandName: string;
+  keywords: KeywordData[];
+  totalVolume: number;
+  avgRank: number | null;
+  aiVisibility: number;
+  opportunityScore: 'high' | 'medium' | 'low';
+  recommendation: string;
+}

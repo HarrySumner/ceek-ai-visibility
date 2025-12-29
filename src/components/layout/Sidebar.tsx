@@ -5,7 +5,9 @@ import {
   Download,
   BarChart3,
   GitCompare,
-  History
+  History,
+  Search,
+  TrendingUp
 } from "lucide-react";
 import ceekLogo from "@/assets/ceek-logo.png";
 
@@ -17,6 +19,8 @@ interface SidebarProps {
 const tabs = [
   { id: 'ask', label: 'Ask a LLM', icon: MessageSquare },
   { id: 'responses', label: 'Check Responses', icon: FileText },
+  { id: 'keywords', label: 'Keyword Tracking', icon: Search },
+  { id: 'insights', label: 'SEO Insights', icon: TrendingUp },
   { id: 'export', label: 'Export', icon: Download },
   { id: 'nlp', label: 'Analyse NLP', icon: BarChart3 },
   { id: 'compare', label: 'Compare Models', icon: GitCompare },
