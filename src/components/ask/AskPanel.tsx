@@ -79,8 +79,9 @@ export function AskPanel({
     setLoadingKeywords(true);
     try {
       const projectKeywords = await getKeywords(projectId);
+      const project = projects.find(p => p.id === projectId);
       
-      // Convert to experiment keywords
+      // Convert to experiment keywords (top 20 by volume)
       const newKeywords: Keyword[] = projectKeywords.slice(0, 20).map((kw) => ({
         id: `kw-${kw.id}`,
         query: kw.keyword,
@@ -89,25 +90,21 @@ export function AskPanel({
       
       setKeywords(newKeywords);
       
-      // Extract unique brands from keywords (simple heuristic)
-      const project = projects.find(p => p.id === projectId);
+      // Set brand from project name
       if (project) {
-        // Use project name as the main brand if no brands exist
-        if (brands.length === 0) {
-          const mainBrand: Brand = {
-            id: crypto.randomUUID(),
-            name: project.name,
-            aliases: [],
-            type: 'client',
-          };
-          setBrands([mainBrand]);
-        }
+        const mainBrand: Brand = {
+          id: crypto.randomUUID(),
+          name: project.name,
+          aliases: [],
+          type: 'client',
+        };
+        setBrands([mainBrand]);
       }
       
-      toast.success(`Loaded ${newKeywords.length} keywords from project`);
+      toast.success(`Loaded ${newKeywords.length} keywords and brand from "${project?.name}"`);
     } catch (error) {
-      console.error('Failed to load project keywords:', error);
-      toast.error('Failed to load project keywords');
+      console.error('Failed to load project data:', error);
+      toast.error('Failed to load project data');
     } finally {
       setLoadingKeywords(false);
     }
