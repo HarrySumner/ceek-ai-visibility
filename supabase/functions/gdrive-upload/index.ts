@@ -5,8 +5,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Google OAuth token exchange
-async function exchangeCodeForTokens(code: string, clientId: string, clientSecret: string, redirectUri: string) {
+// Google OAuth token exchange using server-side secrets
+async function exchangeCodeForTokens(code: string, redirectUri: string) {
+  const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
+  const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
+  
+  if (!clientId || !clientSecret) {
+    throw new Error('Google OAuth credentials not configured');
+  }
+
+  console.log('Exchanging code for tokens...');
+  
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -21,6 +30,7 @@ async function exchangeCodeForTokens(code: string, clientId: string, clientSecre
   
   if (!response.ok) {
     const error = await response.text();
+    console.error('Token exchange failed:', error);
     throw new Error(`Token exchange failed: ${error}`);
   }
   
@@ -38,7 +48,6 @@ async function uploadToDrive(accessToken: string, fileName: string, content: str
     metadata.parents = [folderId];
   }
 
-  // Create multipart upload
   const boundary = '-------314159265358979323846';
   const delimiter = `\r\n--${boundary}\r\n`;
   const closeDelimiter = `\r\n--${boundary}--`;
@@ -63,10 +72,16 @@ async function uploadToDrive(accessToken: string, fileName: string, content: str
 
   if (!response.ok) {
     const error = await response.text();
+    console.error('Drive upload failed:', error);
     throw new Error(`Drive upload failed: ${error}`);
   }
 
   return response.json();
+}
+
+// Get the client ID for client-side OAuth initiation
+function getClientId() {
+  return Deno.env.get('GOOGLE_CLIENT_ID') || '';
 }
 
 serve(async (req) => {
@@ -75,18 +90,27 @@ serve(async (req) => {
   }
 
   try {
-    const { action, accessToken, code, clientId, clientSecret, redirectUri, fileName, content, mimeType, folderId } = await req.json();
+    const { action, accessToken, code, redirectUri, fileName, content, mimeType, folderId } = await req.json();
     console.log(`GDrive API request: action=${action}`);
 
     switch (action) {
+      case 'getClientId': {
+        const clientId = getClientId();
+        return new Response(
+          JSON.stringify({ clientId, configured: Boolean(clientId) }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       case 'exchangeCode': {
-        if (!code || !clientId || !clientSecret || !redirectUri) {
+        if (!code || !redirectUri) {
           return new Response(
-            JSON.stringify({ error: 'Missing required parameters for token exchange' }),
+            JSON.stringify({ error: 'Missing code or redirectUri' }),
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-        const tokens = await exchangeCodeForTokens(code, clientId, clientSecret, redirectUri);
+        const tokens = await exchangeCodeForTokens(code, redirectUri);
+        console.log('Token exchange successful');
         return new Response(
           JSON.stringify(tokens),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

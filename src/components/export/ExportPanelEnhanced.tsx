@@ -3,12 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { FileJson, FileSpreadsheet, FileText, Download, Cloud, LogIn, LogOut, ExternalLink } from "lucide-react";
+import { FileJson, FileSpreadsheet, FileText, Download, Cloud, LogIn, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModelResult, Brand, Keyword } from "@/types";
 import { toast } from "sonner";
 import { 
-  isGoogleDriveConfigured, 
+  checkDriveConfigured,
   getAuthUrl, 
   uploadToDrive, 
   getStoredTokens, 
@@ -54,16 +54,27 @@ export function ExportPanelEnhanced({ results, brands, keywords }: ExportPanelEn
   const [driveEnabled, setDriveEnabled] = useState(false);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [driveConfigured, setDriveConfigured] = useState(false);
+  const [clientId, setClientId] = useState('');
+  const [checkingConfig, setCheckingConfig] = useState(true);
   
   const hasResults = results.length > 0;
-  const driveConfigured = isGoogleDriveConfigured();
 
-  // Check for stored tokens on mount
+  // Check if Drive is configured and for stored tokens
   useEffect(() => {
-    const tokens = getStoredTokens();
-    if (tokens) {
-      setIsSignedIn(true);
+    async function init() {
+      setCheckingConfig(true);
+      const { configured, clientId: cid } = await checkDriveConfigured();
+      setDriveConfigured(configured);
+      setClientId(cid);
+      
+      const tokens = getStoredTokens();
+      if (tokens) {
+        setIsSignedIn(true);
+      }
+      setCheckingConfig(false);
     }
+    init();
   }, []);
 
   // Handle OAuth callback
@@ -80,11 +91,8 @@ export function ExportPanelEnhanced({ results, brands, keywords }: ExportPanelEn
 
   const handleOAuthCallback = async (code: string) => {
     try {
-      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-      const clientSecret = import.meta.env.VITE_GOOGLE_CLIENT_SECRET || '';
       const redirectUri = window.location.origin + window.location.pathname;
-      
-      const tokens = await exchangeCodeForTokens(code, clientId, clientSecret, redirectUri);
+      const tokens = await exchangeCodeForTokens(code, redirectUri);
       storeTokens(tokens);
       setIsSignedIn(true);
       toast.success("Signed in to Google Drive");
@@ -95,8 +103,12 @@ export function ExportPanelEnhanced({ results, brands, keywords }: ExportPanelEn
   };
 
   const handleSignIn = () => {
+    if (!clientId) {
+      toast.error("Google Drive not configured");
+      return;
+    }
     const redirectUri = window.location.origin + window.location.pathname;
-    const url = getAuthUrl(redirectUri);
+    const url = getAuthUrl(clientId, redirectUri);
     window.location.href = url;
   };
 
@@ -203,7 +215,7 @@ export function ExportPanelEnhanced({ results, brands, keywords }: ExportPanelEn
   return (
     <div className="space-y-6">
       {/* Google Drive Integration Card */}
-      {driveConfigured && (
+      {!checkingConfig && driveConfigured && (
         <Card className="p-6 bg-secondary/30 border-border animate-fade-in">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -253,14 +265,14 @@ export function ExportPanelEnhanced({ results, brands, keywords }: ExportPanelEn
         </Card>
       )}
 
-      {!driveConfigured && (
+      {!checkingConfig && !driveConfigured && (
         <Card className="p-6 bg-secondary/20 border-border animate-fade-in">
           <div className="flex items-center gap-4">
             <Cloud className="w-6 h-6 text-muted-foreground" />
             <div>
               <h4 className="font-medium text-muted-foreground">Google Drive Not Configured</h4>
               <p className="text-sm text-muted-foreground">
-                Set VITE_GOOGLE_CLIENT_ID to enable Drive uploads
+                Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET secrets to enable Drive uploads
               </p>
             </div>
           </div>
