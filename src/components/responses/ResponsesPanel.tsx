@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
+import { Progress } from "@/components/ui/progress";
 import { ModelResult, ContentQuality, Brand } from "@/types";
-import { FileText, RotateCcw, Brain, BarChart3, ArrowRight, CheckCircle2 } from "lucide-react";
+import { FileText, RotateCcw, Brain, BarChart3, ArrowRight, CheckCircle2, Download, Loader2 } from "lucide-react";
 import { ConversationVisualizer } from "@/components/conversation/ConversationVisualizer";
 import { RawResponseViewer, RawResponse } from "./RawResponseViewer";
+import { useGifRecorder } from "@/hooks/useGifRecorder";
+import { toast } from "sonner";
 import {
   Tooltip,
   TooltipContent,
@@ -76,9 +79,37 @@ export function ResponsesPanel({ results, rawResponses = [], brands = [], onNavi
   const [showConversation, setShowConversation] = useState(true);
   const [conversationKey, setConversationKey] = useState(0);
   const [speed, setSpeed] = useState([7]);
+  const conversationRef = useRef<HTMLDivElement>(null);
+  
+  const { isRecording, isProcessing, progress, startRecording, stopRecording, downloadGif } = useGifRecorder({
+    frameRate: 8,
+  });
 
   const restartConversation = () => {
     setConversationKey(k => k + 1);
+  };
+
+  const handleRecordGif = async () => {
+    if (!conversationRef.current) return;
+    
+    if (isRecording) {
+      const blob = await stopRecording();
+      if (blob) {
+        downloadGif(blob, `conversation-${Date.now()}.gif`);
+        toast.success("GIF downloaded successfully!");
+      } else {
+        toast.error("Failed to create GIF");
+      }
+    } else {
+      // Start fresh recording with new conversation
+      setConversationKey(k => k + 1);
+      setTimeout(() => {
+        if (conversationRef.current) {
+          startRecording(conversationRef.current);
+          toast.info("Recording started! Will capture the conversation flow.");
+        }
+      }, 100);
+    }
   };
 
   const hasResults = results.length > 0;
@@ -155,28 +186,84 @@ export function ResponsesPanel({ results, rawResponses = [], brands = [], onNavi
                     max={10}
                     step={1}
                     className="w-20"
+                    disabled={isRecording}
                   />
                 </div>
-                <Button variant="outline" size="sm" onClick={restartConversation}>
+                <Button variant="outline" size="sm" onClick={restartConversation} disabled={isRecording}>
                   <RotateCcw className="w-4 h-4 mr-1" />
                   {hasResults ? "Replay" : "Restart"}
                 </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant={isRecording ? "destructive" : "outline"} 
+                        size="sm" 
+                        onClick={handleRecordGif}
+                        disabled={isProcessing}
+                      >
+                        {isProcessing ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            {progress}%
+                          </>
+                        ) : isRecording ? (
+                          <>
+                            <Download className="w-4 h-4 mr-1" />
+                            Stop & Save
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4 mr-1" />
+                            Record GIF
+                          </>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{isRecording ? "Stop recording and download GIF" : "Record conversation as animated GIF"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 {hasResults && (
-                  <Button variant="ghost" size="sm" onClick={() => setShowConversation(false)}>
+                  <Button variant="ghost" size="sm" onClick={() => setShowConversation(false)} disabled={isRecording}>
                     Hide
                   </Button>
                 )}
               </div>
             </div>
+            {isRecording && (
+              <p className="text-xs text-destructive mt-2">
+                ● Recording in progress... Click "Stop & Save" when the conversation ends.
+              </p>
+            )}
+            {isProcessing && (
+              <div className="mt-2">
+                <Progress value={progress} className="h-1" />
+                <p className="text-xs text-muted-foreground mt-1">Processing GIF...</p>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
-            <div className="h-[350px]">
+            <div ref={conversationRef} className="h-[350px]">
               <ConversationVisualizer
                 key={conversationKey}
                 keyword="What are the best luxury handbag brands for investment?"
                 modelName="LLM"
                 isPlaying={true}
                 speed={speed[0]}
+                onComplete={() => {
+                  if (isRecording) {
+                    // Auto-stop after a brief delay when conversation completes
+                    setTimeout(async () => {
+                      const blob = await stopRecording();
+                      if (blob) {
+                        downloadGif(blob, `conversation-${Date.now()}.gif`);
+                        toast.success("GIF downloaded successfully!");
+                      }
+                    }, 1000);
+                  }
+                }}
               />
             </div>
           </CardContent>
