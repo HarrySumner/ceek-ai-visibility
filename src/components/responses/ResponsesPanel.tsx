@@ -4,8 +4,22 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ModelResult, ContentQuality, Brand } from "@/types";
-import { FileText, RotateCcw, Brain, BarChart3, ArrowRight, CheckCircle2, Download, Loader2 } from "lucide-react";
+import { FileText, RotateCcw, Brain, BarChart3, ArrowRight, CheckCircle2, Download, Loader2, Settings2 } from "lucide-react";
 import { ConversationVisualizer } from "@/components/conversation/ConversationVisualizer";
 import { RawResponseViewer, RawResponse } from "./RawResponseViewer";
 import { useGifRecorder } from "@/hooks/useGifRecorder";
@@ -75,15 +89,43 @@ function aggregateResults(results: ModelResult[]): {
   return { totalResponses, avgQuality, brandSummary, modelsUsed };
 }
 
+// GIF quality presets
+const GIF_PRESETS = {
+  low: { width: 400, height: 200, frameRate: 6, label: "Low (Fast)" },
+  medium: { width: 600, height: 300, frameRate: 8, label: "Medium" },
+  high: { width: 800, height: 400, frameRate: 10, label: "High (Slow)" },
+  custom: { width: 600, height: 300, frameRate: 8, label: "Custom" },
+} as const;
+
+type PresetKey = keyof typeof GIF_PRESETS;
+
 export function ResponsesPanel({ results, rawResponses = [], brands = [], onNavigateToNLP }: ResponsesPanelProps) {
   const [showConversation, setShowConversation] = useState(true);
   const [conversationKey, setConversationKey] = useState(0);
   const [speed, setSpeed] = useState([7]);
   const conversationRef = useRef<HTMLDivElement>(null);
   
+  // GIF settings state
+  const [gifPreset, setGifPreset] = useState<PresetKey>("medium");
+  const [gifWidth, setGifWidth] = useState(600);
+  const [gifHeight, setGifHeight] = useState(300);
+  const [gifFrameRate, setGifFrameRate] = useState(8);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  
   const { isRecording, isProcessing, progress, startRecording, stopRecording, downloadGif } = useGifRecorder({
-    frameRate: 8,
+    frameRate: gifFrameRate,
+    width: gifWidth,
+    height: gifHeight,
   });
+
+  const handlePresetChange = (preset: PresetKey) => {
+    setGifPreset(preset);
+    if (preset !== "custom") {
+      setGifWidth(GIF_PRESETS[preset].width);
+      setGifHeight(GIF_PRESETS[preset].height);
+      setGifFrameRate(GIF_PRESETS[preset].frameRate);
+    }
+  };
 
   const restartConversation = () => {
     setConversationKey(k => k + 1);
@@ -101,12 +143,13 @@ export function ResponsesPanel({ results, rawResponses = [], brands = [], onNavi
         toast.error("Failed to create GIF");
       }
     } else {
+      setSettingsOpen(false);
       // Start fresh recording with new conversation
       setConversationKey(k => k + 1);
       setTimeout(() => {
         if (conversationRef.current) {
           startRecording(conversationRef.current);
-          toast.info("Recording started! Will capture the conversation flow.");
+          toast.info(`Recording at ${gifWidth}x${gifHeight} @ ${gifFrameRate}fps`);
         }
       }, 100);
     }
@@ -193,38 +236,115 @@ export function ResponsesPanel({ results, rawResponses = [], brands = [], onNavi
                   <RotateCcw className="w-4 h-4 mr-1" />
                   {hasResults ? "Replay" : "Restart"}
                 </Button>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        variant={isRecording ? "destructive" : "outline"} 
-                        size="sm" 
-                        onClick={handleRecordGif}
-                        disabled={isProcessing}
-                      >
-                        {isProcessing ? (
+                {isRecording ? (
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={handleRecordGif}
+                    disabled={isProcessing}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                        {progress}%
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 mr-1" />
+                        Stop & Save
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={isProcessing}>
+                        <Download className="w-4 h-4 mr-1" />
+                        Record GIF
+                        <Settings2 className="w-3 h-3 ml-1 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72 bg-popover border border-border z-50" align="end">
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <h4 className="font-medium text-sm">GIF Settings</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Customize quality and dimensions
+                          </p>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label className="text-xs">Quality Preset</Label>
+                          <Select value={gifPreset} onValueChange={(v) => handlePresetChange(v as PresetKey)}>
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border border-border z-50">
+                              <SelectItem value="low">Low (Fast, ~400x200)</SelectItem>
+                              <SelectItem value="medium">Medium (~600x300)</SelectItem>
+                              <SelectItem value="high">High (Slow, ~800x400)</SelectItem>
+                              <SelectItem value="custom">Custom</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {gifPreset === "custom" && (
                           <>
-                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
-                            {progress}%
-                          </>
-                        ) : isRecording ? (
-                          <>
-                            <Download className="w-4 h-4 mr-1" />
-                            Stop & Save
-                          </>
-                        ) : (
-                          <>
-                            <Download className="w-4 h-4 mr-1" />
-                            Record GIF
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Width (px)</Label>
+                                <Input
+                                  type="number"
+                                  value={gifWidth}
+                                  onChange={(e) => setGifWidth(Number(e.target.value))}
+                                  min={200}
+                                  max={1200}
+                                  className="h-8 text-xs"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Height (px)</Label>
+                                <Input
+                                  type="number"
+                                  value={gifHeight}
+                                  onChange={(e) => setGifHeight(Number(e.target.value))}
+                                  min={100}
+                                  max={800}
+                                  className="h-8 text-xs"
+                                />
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <Label className="text-xs">Frame Rate</Label>
+                                <span className="text-xs text-muted-foreground">{gifFrameRate} fps</span>
+                              </div>
+                              <Slider
+                                value={[gifFrameRate]}
+                                onValueChange={([v]) => setGifFrameRate(v)}
+                                min={4}
+                                max={15}
+                                step={1}
+                              />
+                            </div>
                           </>
                         )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{isRecording ? "Stop recording and download GIF" : "Record conversation as animated GIF"}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+
+                        <div className="pt-2 border-t border-border">
+                          <Button 
+                            className="w-full" 
+                            size="sm"
+                            onClick={handleRecordGif}
+                          >
+                            <Download className="w-4 h-4 mr-1" />
+                            Start Recording
+                          </Button>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
                 {hasResults && (
                   <Button variant="ghost" size="sm" onClick={() => setShowConversation(false)} disabled={isRecording}>
                     Hide
