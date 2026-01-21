@@ -36,10 +36,13 @@ export function useGifRecorder(options: UseGifRecorderOptions = {}) {
       
       try {
         const canvas = await html2canvas(elementRef.current, {
-          backgroundColor: '#1a1a2e',
-          scale: 1,
+          backgroundColor: '#0f0f23',
+          scale: 0.5, // Reduce scale for better performance
           logging: false,
           useCORS: true,
+          allowTaint: true,
+          foreignObjectRendering: false,
+          removeContainer: true,
         });
         
         const ctx = canvas.getContext('2d');

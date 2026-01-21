@@ -140,18 +140,20 @@ export function ResponsesPanel({ results, rawResponses = [], brands = [], onNavi
         downloadGif(blob, `conversation-${Date.now()}.gif`);
         toast.success("GIF downloaded successfully!");
       } else {
-        toast.error("Failed to create GIF");
+        toast.error("Failed to create GIF - try reducing speed or dimensions");
       }
     } else {
       setSettingsOpen(false);
+      // Slow down for better capture
+      setSpeed([3]);
       // Start fresh recording with new conversation
       setConversationKey(k => k + 1);
       setTimeout(() => {
         if (conversationRef.current) {
           startRecording(conversationRef.current);
-          toast.info(`Recording at ${gifWidth}x${gifHeight} @ ${gifFrameRate}fps`);
+          toast.info(`Recording started - conversation will auto-save when complete`);
         }
-      }, 100);
+      }, 200);
     }
   };
 
